@@ -5,7 +5,7 @@ import re
 from difflib import SequenceMatcher
 
 from .models import CharacterCandidate, CastingCallLogStore
-from .prompts import CASTING_DIRECTOR_PROMPT
+from .prompts import CASTING_DIRECTOR_PROMPT, DOSSIER_COMPILER_PROMPT
 from ..llm import LLMClient
 
 
@@ -148,3 +148,16 @@ class CharacterExtractionPipeline:
                 cand.minor_role = True
 
         return candidates
+
+
+@dataclass
+class DossierCompiler:
+    """Generate a character dossier for a candidate."""
+
+    llm_client: LLMClient
+
+    def compile(self, candidate: CharacterCandidate) -> dict:
+        """Compile a dossier for ``candidate``."""
+
+        prompt = f"{DOSSIER_COMPILER_PROMPT}\nName: {candidate.name}"
+        return self.llm_client.generate(prompt)
