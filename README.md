@@ -30,12 +30,40 @@ The client recognises the following variables:
 | `LLM_TIMEOUT`      | value from config (`30`)    | Request timeout in seconds.     |
 | `OPENAI_API_KEY`   | `null`                      | API key for the OpenAI provider.|
 | `OPENAI_BASE_URL`  | `https://api.openai.com/v1` | Endpoint for the OpenAI API.    |
+| `OLLAMA_BASE_URL`  | `http://localhost:11434`    | Ollama base URL.                |
 
 Provider-specific variables use the pattern `<PROVIDER>_API_KEY` and
 `<PROVIDER>_BASE_URL`.
 
 Set these variables in your environment before running code that calls the
 LLM.
+
+### Switching providers
+
+Choose a provider with `LLM_PROVIDER` and set any required credentials:
+
+```bash
+# OpenAI
+export LLM_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
+
+# Local Ollama server
+export LLM_PROVIDER=ollama
+export OLLAMA_BASE_URL=http://localhost:11434
+```
+
+### Troubleshooting
+
+**OpenAI**
+
+- `401 Unauthorized` – check that `OPENAI_API_KEY` is valid and not expired.
+- Connection errors – confirm `OPENAI_BASE_URL` and network access.
+
+**Ollama**
+
+- `Connection refused` – ensure the Ollama server is running at
+  `OLLAMA_BASE_URL`.
+- `404` or `model not found` – pull the model or verify its name.
 
 ## Development Progress (Tasks 2–4)
 - **Task 2:** Established the core scene generation loop that retrieves context and constructs prompts.
@@ -46,6 +74,7 @@ LLM.
 The pipeline expects the following variables at runtime:
 
 - `OPENAI_API_KEY` – API key for accessing the LLM provider.
+- `OLLAMA_BASE_URL` – Base URL for a local Ollama server.
 - `LLM_PROVIDER` – Name of the LLM provider (default `openai`).
 - `LLM_MODEL` – Model name used for inner monologue and dialogue.
 - `LLM_TEMPERATURE` – Sampling temperature for generation.
