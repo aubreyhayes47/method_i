@@ -1,10 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 import re
 from difflib import SequenceMatcher
 
-from .models import CharacterCandidate
+from .models import CharacterCandidate, CastingCallLogStore
 from .prompts import CASTING_DIRECTOR_PROMPT
 from ..llm import LLMClient
 
@@ -14,6 +14,7 @@ class CharacterExtractionPipeline:
     """Pipeline orchestrating character extraction from source texts."""
 
     llm_client: LLMClient
+    store: Optional[CastingCallLogStore] = None
 
     def run(
         self, book_id: str, source: str = "gutenberg"
@@ -36,7 +37,13 @@ class CharacterExtractionPipeline:
         text = self.fetch_text(book_id, source)
         chunks = self.chunk_text(text)
         candidates = self.extract_characters(chunks)
-        return self.deduplicate_candidates(candidates)
+        deduped = self.deduplicate_candidates(candidates)
+
+        if self.store is not None:
+            for cand in deduped:
+                self.store.add(cand)
+
+        return deduped
 
     # The following methods are expected to be implemented by subclasses or
     # provided via mixins. They are declared here to document the expected
