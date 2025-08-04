@@ -1,0 +1,1551 @@
+Method I Narrative Engine – Comprehensive Design Specification
+
+1. Feature Specifications (Pre-Development)
+
+Overview: The system’s core data structures are formalized in JSON-based schemas. These include the Character Dossier (defining each character in detail), the Scene State Manager (in-memory state of an active scene), the Vector Store Indexes (multiple indexes for character memory and style), and the In-Scene Grounding schema (which uses Uta Hagen’s nine questions and other acting methods for per-scene context). Each schema is detailed below:
+
+1a. Character Dossier Schema
+
+The Character Dossier represents a complete profile for a character, serving as the “blueprint” an actor (or AI agent) would use to portray them. It is structured as a JSON object with the following key fields (all are required):
+
+name (string) – The character’s name.
+
+role (string) – The character’s narrative role or archetype (e.g. tragic hero, comic relief).
+
+source_material (string) – Reference to the source text or material the character comes from (for traceability).
+
+blueprint (object) – The “architect’s work” section containing foundational character elements:
+
+biographical_summary (string) – A short backstory or biography of the character.
+
+core_contradictions (string[]) – A list of the character’s central inner contradictions (conflicting traits or desires).
+
+linguistic_fingerprint (object) – Defines how the character speaks, including:
+
+syntax (string) – Typical syntax or grammar style the character uses.
+
+pacing (string) – The rhythm/tempo of their speech.
+
+lexical_choices (string[]) – Common vocabulary or phrases they use.
+
+
+
+inner_world (object) – The “inner psychology” or actor’s inner work:
+
+super_objective (string) – The character’s overarching goal that drives them (their deep desire).
+
+primal_fear (string) – The character’s deepest fear or aversion.
+
+paradox (string) – A core paradox or irony in the character’s nature (e.g. craves love but fears intimacy).
+
+memory_journal (array of objects) – Key past events shaping the character. Each memory entry includes:
+
+event (string) – A brief description of a past event.
+
+emotion (string) – The emotion that event evoked in the character.
+
+influence_on_present (string) – How that memory affects the character’s present behavior.
+
+
+
+physical_form (object) – The “physical acting” aspects:
+
+animal_work (string) – An animal analogy or movement inspiration for the character’s physicality (an acting exercise).
+
+energetic_center (string) – Where the character’s energy is centered in their body (e.g. head, heart, gut).
+
+
+
+Each Character Dossier is essentially a living document of the character. It provides static facts (biography, traits) as well as dynamic prompts for behavior. This dossier serves both as configuration data and as a queryable knowledge base for the character’s memory and style. It’s the foundation for consistent, emergent behavior by grounding the AI in the character’s identity and history.
+
+1b. Scene State Manager Schema
+
+The Scene State Manager maintains the transient state of an active scene in memory. It tracks the progress of a scene (which is essentially an improvised performance between characters) and the state of each character within that scene. The schema is an object with these fields:
+
+scene_id (string) – Unique identifier for the scene instance.
+
+scene_summary (string) – A brief summary or premise of the scene (e.g. “Two friends confront each other about a betrayal”) to set context.
+
+turn_count (integer) – A counter for how many turns (exchanges) have occurred so far.
+
+characters (array of objects) – The list of characters participating in the scene, with each entry tracking that character’s state in the scene:
+
+character_id (string) – Identifier referencing which character (links to a Character Dossier).
+
+current_emotional_state (string) – The character’s present emotional state or mood in this scene (e.g. angry, nervous). This can evolve turn by turn.
+
+objective_in_scene (string) – The character’s situational objective for this scene (what they want right now in context of this scene).
+
+obstacle (string, optional) – What is impeding the character from achieving their objective in this scene (if applicable).
+
+(Optional in v2) method_inputs (object) – Acting method parameters drawn from the dossier, used to aid prompt generation. This could include, for example, a subset of inner_world or Uta Hagen answers relevant this turn.
+
+(Optional in v2) last_turn (object) – If the character has just acted, this contains the results of their last action:
+
+dialogue (string) – The last line of dialogue spoken by this character.
+
+action (string) – The last physical action or stage direction performed by this character.
+
+subtext (string) – The underlying subtext or intention behind that dialogue/action (often derived from their inner monologue).
+
+
+
+shared_narrative_memory (string[]) – A shared log of important narrative events or facts revealed in the scene so far. This is like the “scene memory” accessible to all characters (e.g. plot points that everyone in the scene would be aware of).
+
+
+The Scene State Manager acts as the single source of truth for the ongoing simulation. It’s updated each turn to reflect new dialogue, actions, and emotional shifts. In a more advanced deployment, this state could be maintained in a stateful service (e.g. a Kubernetes StatefulSet) to preserve continuity.
+
+1c. Vector Store Index Schemas
+
+To implement Retrieval-Augmented Generation (RAG) for character memory and style, the system uses multiple vector indexes (logical collections in a vector database) rather than one monolithic memory. Each index corresponds to a different facet of the character’s dossier, enabling targeted recall of information depending on context. The main indexes include:
+
+Psychological Profile Index – Stores vectors related to the character’s psychology and personal history (inner_world). Schema structure:
+
+character_id (string) – Reference to which character the profile belongs to.
+
+entries (array of objects) – A list of indexed psychological snippets. Each entry might represent a key aspect or memory, with properties:
+
+paradox (string) – A statement of a core paradox or conflict the character has (from dossier’s paradox or core_contradictions).
+
+fear (string) – The character’s primal fear (or a fear-related memory).
+
+memory_snippet (string) – A snippet of a memory or past event relevant to these themes (taken from memory_journal).
+
+relevance_score (number) – (Optional) A score indicating how relevant this entry is to recent context (used at runtime to rank retrievals).
+
+
+
+Each entry, when added to the vector store, is embedded with emotional context so that queries can retrieve memories influenced by the character’s current emotional state. This index is queried during Inner Monologue generation to retrieve personal memories or fears that might influence the character’s internal reasoning in the current situation.
+
+Linguistic Profile Index – Stores vectors related to the character’s manner of speaking (from the blueprint.linguistic_fingerprint). Schema structure:
+
+character_id (string) – Character reference for this linguistic profile.
+
+linguistic_traits (object) – Traits capturing the character’s voice and style:
+
+syntax (string) – Typical sentence structure (e.g. simple, complex, verbose, clipped).
+
+tone (string) – Usual tone or emotional flavor of speech (e.g. sarcastic, earnest).
+
+common_phrases (string[]) – A list of favorite words or phrases the character tends to use.
+
+
+
+This index is used during Dialogue & Action generation to ensure the character’s dialogue aligns with their unique voice. By embedding these traits, the LLM can retrieve and be reminded of how the character speaks (for example, retrieving some signature phrases or the general tone).
+
+
+(Additional indexes: The architecture is designed to be extensible with other indexes like a relationship_index for inter-character relationships or a physicality_index for physical mannerisms. These would similarly store vectorized snippets of the dossier relevant to those aspects. For brevity, we focus on the two primary indexes above.)
+
+Each index’s schema is implemented as a JSON schema for consistency, and in practice the data will be stored in a vector database (like Pinecone or Chroma) under different namespaces or collections. This multi-index setup (coined “Dramaturgical RAG”) allows highly targeted retrieval: e.g., the Inner Monologue step queries the psych_profile_index for relevant memories/emotions, whereas the Dialogue generation step queries the linguistic_profile_index (and possibly physicality_index) for style cues.
+
+1d. In-Scene Grounding Schema
+
+The In-Scene Grounding schema defines how a character’s acting choices are grounded just before and during a scene’s turn. It pulls together context from the scene and acting methodology (Uta Hagen’s questions, etc.) to prepare the character for their next action. Its fields include:
+
+character_id (string) – Which character this grounding is for (links to Character Dossier).
+
+scene_context (string) – A brief description of the current situation in the scene (could be automatically derived from Scene State Manager’s scene_summary and recent events). Essentially, “Where are we now?” in narrative terms.
+
+uta_hagen_nine (object) – The answers to Uta Hagen’s nine foundational acting questions for the character in this scene. These nine questions (applied to the current context) ensure the character’s actions are grounded in a realistic, actor-like understanding of circumstances:
+
+1. who_am_i – Who is the character right now? (Their sense of self in the scene’s context.)
+
+
+2. what_do_i_want – What does the character want in this moment? (Their immediate objective in the scene.)
+
+
+3. why_do_i_want_it – Why do they want this? (Motivations driving that objective.)
+
+
+4. where_am_i – Where is the scene taking place? (Setting, as perceived by the character.)
+
+
+5. when_is_it – When is it? (Time period, season, time of day – any temporal context relevant.)
+
+
+6. what_must_i_overcome – What obstacles or conflicts must the character overcome to get what they want?
+
+
+7. how_do_i_get_it – How might the character try to get what they want? (Potential strategy or method, corresponds to tactic.)
+
+
+8. what_is_at_stake – What is at stake if they fail? (Consequences for the character, to create urgency.)
+
+
+9. what_am_i_doing – What is the character actually doing (physically and verbally) at this moment, within the scene?
+
+
+
+moment_before (string) – What happened to the character just before this scene or just before this turn (the immediate “moment before”) that might influence their state. Actors consider the moment before to enter a scene with momentum.
+
+tactic (string) – The specific tactic the character is about to employ to pursue their objective (e.g. appeal to pity, use intimidation). This often comes from analyzing how_do_i_get_it above.
+
+method_inputs (object, optional) – Additional acting technique inputs derived from other methodologies to inform the performance:
+
+magic_if (string) – Stanislavski’s “Magic If”: “If I (the character) were in these circumstances, what would I do?” – a imaginative scenario to spark genuine reaction.
+
+essential_action (string) – A simplified, transitive verb that captures what the character is essentially doing to the other person (an idea from acting coach Harold Guskin or William Esper, e.g. “to provoke him”, “to comfort her”).
+
+as_if (string) – A personalization tool: “It’s as if [some analogous situation]”. The actor’s way to invoke genuine emotion by comparing the scene to a real-life scenario.
+
+psychological_gesture (string) – From Michael Chekhov’s technique: a physical gesture or imagery that encapsulates the character’s inner state or intention, used to inspire the performance (e.g. clenching fist to summon courage).
+
+
+
+During each turn, for each character about to act, an In-Scene Grounding object is constructed (or updated) based on the Scene State and the character’s dossier. This provides the LLM with a rich, structured context of why the character is doing what they’re doing, not just what is happening. This schema essentially operationalizes the “actor’s prep work” right before performance, ensuring the AI’s next move is consistent with the character’s motivations and the given circumstances.
+
+2. Core Backend Logic: Scene Generation Pipeline
+
+Overview: The scene generation pipeline is the sequence of operations the backend performs to produce each new segment of the improvised scene (turn by turn). It’s designed as a multi-step chain of LLM calls, incorporating retrieved memories and acting logic at each step. Below is a sequence diagram of the pipeline and the exact prompt templates used for the key LLM calls (Inner Monologue, and Dialogue & Action). Together, these define the core “performance loop” of the Narrative Engine.
+
+Sequence Diagram: Scene Generation Pipeline
+
+sequenceDiagram
+    participant UI as Scene Builder UI
+    participant BE as FastAPI Backend
+    participant VS as Vector Store (Memory Indexes)
+    participant LLM as Large Language Model (API)
+    UI->>BE: 1. User requests next scene turn (with scene_id)
+    BE->>VS: 2. Retrieve relevant memories & traits (from psych_profile_index, linguistic_profile_index) for active character
+    BE->>LLM: 3. Inner Monologue Prompt (private reasoning for Character A)
+    LLM-->>BE: 4. Inner monologue result (subtext/intention JSON)
+    BE->>LLM: 5. Dialogue & Action Prompt (with subtext and context)
+    LLM-->>BE: 6. Dialogue & action result (character's outward speech/action JSON)
+    BE->>VS: 7. Update memory indexes (e.g. add new event to shared memory or character memory)
+    BE->>UI: 8. Return new dialogue & action (to display in scene log)
+    Note over BE: Backend also updates Scene State (turn_count++, emotional states, etc.)
+
+Figure: Turn-by-turn scene generation workflow. In this pipeline, the UI triggers the backend to generate the next turn. The backend (BE) uses the character’s dossier information via vector store (VS) retrieval to ground the LLM prompts with relevant character memories and traits. The LLM is then called twice in succession: first to produce the character’s Inner Monologue (a covert reasoning step yielding the character’s intention/subtext), and next to produce the actual Dialogue & Action that the character performs publicly. The results are returned to the UI and also used to update the state (including adding any new emergent memories).
+
+This multi-step chain aligns with the five-part generative chain outlined in the design proposal, focusing on the first two LLM calls:
+
+LLM Call 1: Inner Monologue – generates a structured internal state for the character (their subtextual intention, chosen tactic, and current emotional state) based on the character’s psychology and the situation.
+
+LLM Call 2: Dialogue & Action – generates the character’s spoken dialogue line and accompanying action description, in the style authentic to that character, using the inner monologue output and additional RAG retrievals (linguistic and physical traits) as guidance.
+
+
+(Note: In a full implementation, subsequent calls include a Scene Analyzer (Call 3) to interpret subtext and effects, a Scene Closure Judge (Call 4) to decide if the scene should end, and an optional Curation step (Call 5) to refine the script. These are beyond the current scope, but the pipeline is designed to accommodate them in sequence.)
+
+LLM Prompt Templates for Inner Monologue and Dialogue & Action
+
+The following are production-ready prompt templates for the two primary LLM calls. These templates assume we supply the necessary context variables (filled in by the backend prior to calling the LLM). The outputs are expected in a structured JSON format so that they can be programmatically parsed and inserted back into the system state.
+
+Inner Monologue Prompt Template
+
+You are the inner voice of the character **{character_name}**, engaging in a private monologue. 
+
+**Character Background:** 
+- Super-Objective: {super_objective}
+- Primal Fear: {primal_fear}
+- Paradox: {paradox}
+- Recent Memory: "{retrieved_memory_snippet}" 
+- Emotional State: {current_emotional_state}
+
+**Scene Context:** {scene_context} 
+(In this scene, {character_name} wants "{objective_in_scene}" but faces "{obstacle}".)
+
+As {character_name}'s inner voice, reason through the situation using the character’s background and emotions. Consider Uta Hagen’s nine questions:
+1. Who am I? – ({who_am_i})
+2. What do I want? – ({what_do_i_want} and why: {why_do_i_want_it})
+3. What stands in my way? – ({what_must_i_overcome})
+4. How will I try to get it? – ({how_do_i_get_it}) 
+... (use all given details to shape your thoughts)
+
+Finally, **conclude with a JSON** representing {character_name}'s internal decision for this turn, in the format:
+{
+  "subtextualIntention": "...", 
+  "activeTactic": "...", 
+  "emotionalState": "..."
+}
+(Only output valid JSON and no explanations.)
+
+Explanation: This prompt establishes the LLM as the character’s Inner Monologue. It provides key background (from the dossier’s inner_world and a relevant memory retrieved via RAG), the current scene context, and explicitly lists the acting questions to structure the reasoning. The LLM is asked to “reason through the situation” as the character, effectively performing a chain-of-thought as an actor would. It then must output a JSON with fields subtextualIntention, activeTactic, and emotionalState – a distilled summary of the character’s internal decision about how to approach the next moment. For example, subtextualIntention might be “to regain his dignity without apologizing,” activeTactic might be “sarcasm to deflect blame,” and emotionalState might be “defensive”. This JSON is then fed into the next call.
+
+Dialogue & Action Prompt Template
+
+You are an expert playwright and actor, generating the **external behavior** for the character **{character_name}**.
+
+**Context:** 
+- Scene so far: {scene_history_summary}
+- {character_name}'s internal state: {subtextualIntention} (intention), tactic: {activeTactic}, emotion: {emotionalState}
+
+**Style Guidelines (Character’s Voice & Body):** 
+- Speaking style: {linguistic_style_summary} (e.g. syntax, tone, vocabulary unique to {character_name})
+- Physical mannerisms: {physical_style_summary} (e.g. how they move or gesture)
+
+Now, write {character_name}'s next turn as a short script excerpt, including a line of dialogue and a brief stage direction for their action or expression. 
+
+It should implicitly convey the subtext without stating it directly (show the emotion and intention through what {character_name} says and does).
+
+Format the output as **JSON** with keys:
+{
+  "dialogue": "{character_name}: <spoken line>",
+  "actionDescription": "<brief description of action or body language>"
+}
+(Only output the JSON object.)
+
+Explanation: This prompt positions the LLM to generate the character’s outward performance – essentially the Dialogue & Action for the next turn. It provides:
+
+A summary of the scene so far or the immediate preceding dialogue (scene_history_summary).
+
+The character’s internal state results from the Inner Monologue (intention, tactic, emotion).
+
+Reminders of the character’s unique voice and physicality, retrieved from the dossier’s linguistic and physical traits (these could be short descriptions or examples, e.g. “speaks in short, clipped sentences with a polite tone” for linguistic, and “nervously fidgets with ring” for physical). This ensures the style is on-point.
+
+
+The LLM must produce a JSON with dialogue and actionDescription keys. For example:
+
+{
+  "dialogue": "John: Fine, have it your way then!",
+  "actionDescription": "(*John slams the book shut and avoids eye contact*)"
+}
+
+This structured output can be parsed by the system. The dialogue line includes the character’s name (as a script would), and the actionDescription provides stage directions. The instruction to “implicitly convey the subtext without stating it” is crucial – it ensures that the line and action are influenced by the inner monologue (subtextual intention) but do not overtly explain it. This aligns with good dramaturgy: the audience sees the behavior and infers the subtext. The use of structured output (JSON) is in line with using modern LLM capabilities to ensure we can reliably parse the result.
+
+These prompt templates will be filled in programmatically by the backend each turn with the appropriate context, and then sent to the LLM (e.g., via OpenAI API or another model endpoint). The responses (JSON) are validated and then used to update the Scene State Manager (e.g., setting the character’s new emotional state, logging the dialogue to shared memory, etc.). If the scene is not over, the UI will prompt the next turn, possibly for another character, repeating the process.
+
+3. Casting Call Subsystem
+
+Overview: The Casting Call subsystem is a pipeline that ingests raw story text (e.g., public domain books or scripts), identifies compelling characters, and generates full dossiers for them. It automates the “casting director” and “dramaturge” roles – first extracting character candidates from text, then compiling detailed dossiers using the Method I schema. Below is a workflow diagram of this process and the specific prompt templates used for each AI step (Batch Character Extraction and Dossier Compilation).
+
+Workflow Diagram: Ingestion to Dossier Creation
+
+flowchart TD
+    A[Start: Input source texts or topic] --> B{{Fetch Books/Text}};
+    B --> C[[Character Extraction (LLM)]];
+    C --> D[(Candidate Characters List)];
+    D --> |Selection| E[User reviews & selects characters];
+    E --> F[[Dossier Compilation (LLM)]];
+    F --> G[(Completed Character Dossiers)];
+    G --> H{{Store in Database}};
+
+Figure: Casting Call Subsystem Workflow. The steps are:
+
+1. Ingestion – The user (admin) provides input, either by uploading text or specifying a topic/genre to fetch public domain books. The system fetches the source material (for example, via the Gutendex API for Project Gutenberg texts).
+
+
+2. Batch Character Extraction – An LLM processes each text to identify characters with strong dramatic potential. It returns a list of character candidates per text, including brief attributes (name, role, traits, contradictions, etc.).
+
+
+3. Review & Selection – The admin reviews the extracted candidates (the system may flag duplicates or very minor characters). The admin selects which characters should be fully developed. (This step is user-driven via the Admin Panel, see UI specs below).
+
+
+4. Dossier Compilation – For each selected character, an LLM call compiles a complete Character Dossier (filling in all sections of the schema) based on the initial extracted info and the character’s source context.
+
+
+5. Storage – The resulting dossiers are saved to the system’s database (and potentially indexed into the vector stores immediately).
+
+
+
+This subsystem turns unstructured text into structured character data for the Narrative Engine. The two critical AI prompts are detailed next.
+
+[
+  {
+    "character_id": "lucy_westenra",
+    "name": "Lucy Westenra",
+    "role": "tragic victim",
+    "source_material_excerpt": "Lucy... (excerpt text)",
+    "traits": ["romantic", "anxious", "fragile"],
+    "contradictions": ["flirtatious yet self-sacrificing"],
+    "emotional_tone": "dreamy and vulnerable"
+  }
+]
+
+
+
+Each such candidate is then available for the admin to confirm or discard.
+
+Dossier Compiler Prompt
+
+Once characters are selected for inclusion, the system uses a second prompt to generate full dossiers, treating the LLM as a dramaturge or narrative designer:
+
+You are a seasoned dramaturge compiling a complete **character dossier** using the Method I acting technique.
+
+Below is the character's preliminary info:
+
+- **Character ID:** {character_id}
+- **Name:** {name}
+- **Role:** {role}
+- **Traits:** {traits_list}
+- **Contradictions:** {contradictions_list}
+- **Emotional Tone:** {emotional_tone}
+- **Source Material Excerpt:** "{source_material_excerpt}"
+
+Using this information as a starting point, **expand and refine** it into a detailed, actor-ready dossier. Follow the official dossier JSON schema provided (below), filling in all sections with creative yet consistent details for this character.
+
+**Schema Format:** 
+{(insert Character Dossier JSON schema here)}
+
+Now output the character’s dossier strictly in JSON format following the schema.
+
+This prompt supplies the LLM with the key details extracted for the character and explicitly gives the JSON schema structure it must adhere to. By providing the exact schema text in the prompt, we ensure the LLM’s output matches the expected format (including nested fields like blueprint, inner_world, etc.). The LLM, acting as a dramaturge, will fill in details such as a full biographical summary, specific contradictions, linguistic fingerprint, memories, etc., consistent with the traits and excerpt. The output is a complete JSON object representing the dossier, which the system then saves (and optionally validates against the schema).
+
+For example, the dossier compiler might take Lucy Westenra’s entry and produce a JSON with fields like biographical_summary (perhaps summarizing her story in Dracula), a list of core_contradictions (e.g. “yearning for love vs. fear of disappointing society”), a linguistic_fingerprint (maybe noting she speaks in a refined, Victorian manner), and so on – all structured per schema. The inclusion of the schema in the prompt is crucial: it acts as both instruction and format validation.
+
+Once the dossier JSON is returned, the backend stores it in the Characters database and also indexes the relevant parts into the vector stores (psychological and linguistic indexes). At this point, the character is fully integrated into the Narrative Engine, ready to be cast in scenes via the Scene Builder.
+
+(Note: The Casting Call subsystem can be run in batch. In a production setting, these operations could be asynchronous background jobs, especially dossier compilation which might be time-consuming. The API endpoints described next support initiating these steps and retrieving results.)
+
+4. API Contract (FastAPI Backend)
+
+Overview: The FastAPI backend exposes RESTful endpoints that serve three primary clients: the frontend UI, the LLM services, and internal database or management tasks. Below we define each endpoint, including its purpose, request/response models, and relevant data transfer objects (DTOs). The contract is designed to allow the frontend (Scene Builder and Admin Panel) to interact with characters and scenes, and to trigger LLM-powered operations like scene generation and casting call. All responses are in JSON. Authentication is assumed handled globally (e.g., via a token or session for admin users), but specific auth details are omitted for brevity.
+
+Data Models (DTOs)
+
+Before listing endpoints, key data structures returned or sent through the API include:
+
+CharacterDTO: Representation of a character dossier in responses. Fields:
+
+id (string) – Unique character identifier (same as dossier’s character_id).
+
+name (string), role (string) – Basic info.
+
+blueprint, inner_world, physical_form – Full objects as defined in the Character Dossier schema. (In some list views, these might be omitted or summarized to reduce payload size, returning only high-level info unless specifically requested.)
+
+Possibly separate simplified fields for quick display (e.g. traits or a short bio) extracted from the dossier for listing purposes.
+
+
+SceneDTO: Represents a scene or scene log.
+
+scene_id (string), scene_summary (string), turn_count (int) – as per Scene State schema.
+
+characters (list of objects) – each with character_id and potentially initial role or starting state.
+
+transcript (list of turn objects) – the dialogue and action history of the scene. Each turn object might include speaker (character_id), dialogue (string), action (string), turn_number (int). (This transcript is essentially the output of the generative pipeline over time. It may or may not include internal subtext.)
+
+is_active (bool) – whether the scene is still ongoing or has concluded.
+
+
+UserDTO: (For Admin Panel user management)
+
+user_id (string), email (string), role (string, e.g. “admin” or “user”), and other profile info if needed.
+
+
+ErrorResponse: Standard error payload with detail or error message.
+
+
+Endpoints
+
+Below are the API endpoints grouped by functionality:
+
+Characters Management:
+
+GET /api/characters – Description: Retrieve a list of all character dossiers in the system (for display in Admin Panel Characters tab). Response: JSON array of CharacterDTO (possibly truncated info such as id, name, role). This allows admins to see available characters.
+
+GET /api/characters/{id} – Description: Retrieve the full details of a specific character dossier (by character ID). Response: CharacterDTO with all fields (the entire dossier JSON) for viewing or editing.
+
+POST /api/characters – Description: Create a new character dossier manually. Request: JSON body (may either include full dossier fields or minimal fields to generate one). For example, an admin could manually input some traits and let the system auto-complete a dossier via an LLM call. Response: CharacterDTO of the created character. (In many cases, new characters will come from Casting Call rather than manual creation, but this allows flexibility.)
+
+PUT /api/characters/{id} – Description: Update an existing character’s dossier. Request: JSON with any fields to change (name, role, or deeper fields). Response: CharacterDTO of the updated character. This is used if an admin tweaks a dossier post-generation.
+
+DELETE /api/characters/{id} – Description: Remove a character from the system. Response: { "deleted": true } on success. (Should be used carefully; might not actually delete rows if scenes reference them, perhaps mark as archived.)
+
+Casting Call / Ingestion:
+
+POST /api/casting-call – Description: Initiate the casting call pipeline on given input texts or a topic. Request: JSON with either:
+
+texts: an array of raw text strings (if uploading custom text), or
+
+topic: a string and limit: number of books to fetch (if using Gutenberg fetch).
+
+
+This starts the ingestion and extraction process. Response: an object with a task_id (if asynchronous) or directly a list of extracted characters if done synchronously. In a simplified implementation, the backend might process immediately and return results.
+
+GET /api/casting-call/results/{task_id} – (If async) Description: Check the status or get results of a casting call task. Response: Could be {"status": "running"} or if done {"candidates": [ ...Character candidates... ]}.
+
+POST /api/casting-call/compile – Description: Submit selected characters for dossier compilation. Request: JSON containing a list of character_id (from the candidates) to compile. Response: Could be a task accepted response or immediately the compiled dossiers. The backend will run the Dossier Compiler LLM for each and save the results. On completion, those characters are inserted into the main character list (available via GET /characters). If synchronous, it could return the new CharacterDTOs array.
+
+
+(The above could be combined in different ways; e.g., a single endpoint that accepts text and returns dossiers directly after full pipeline. But splitting into extraction and compile steps allows user intervention for quality control.)
+
+Scene Generation:
+
+POST /api/scenes – Description: Create a new scene. Request: JSON with details like:
+
+characters: array of character IDs to include in the scene (the “cast”).
+
+premise: a brief text describing the scenario or starting situation.
+
+
+The backend will initialize a Scene State (scene_id, summary from premise, turn_count=0, initial emotional states possibly neutral or derived from characters’ dossiers, etc.). Response: SceneDTO of the newly created scene (initial state, no transcript yet). This endpoint corresponds to starting a session in the Scene Builder (the director sets the stage).
+
+POST /api/scenes/{scene_id}/next-turn – Description: Generate the next turn of dialogue/action for the given scene. Request: Optionally can include input like speaker (the character who should act next, if we want to control turn order; otherwise the system can decide or alternate), or allow the system to pick based on scene dynamics. Response: JSON containing the newly generated turn (e.g. { "speaker": ..., "dialogue": "...", "action": "..."}) and perhaps the updated turn_count. The backend internally uses the Scene Generation Pipeline (as described in Section 2) to produce this. The Scene State Manager is updated as a side effect. The response can also include a flag if the scene was concluded as a result of this turn (if a call like the Scene Closure Judge determined an ending).
+
+GET /api/scenes/{scene_id} – Description: Retrieve the current state of an ongoing scene (or the final log of a finished scene). Response: SceneDTO including the full transcript of all turns so far, and possibly current state of each character (their emotional state, etc.). This is used to refresh or review scene progress in the UI.
+
+GET /api/scene-logs – Description: List past scenes (logs/records of performances). Response: Array of SceneDTO (possibly just basic info: scene_id, summary, turn_count, characters, and maybe a timestamp or concluded flag). This populates the Admin Panel’s Scene Logs tab for reviewing previous sessions.
+
+
+User Management (Admin Panel Users Tab):
+
+GET /api/users – Description: List all user accounts (admin functionality). Response: Array of UserDTO. (If the system has only admins for now, this might list admin accounts.)
+
+POST /api/users – Description: Create a new user (e.g., invite a new admin or create a player account). Request: JSON with user details (email, role, etc.). Response: UserDTO for the created user or confirmation.
+
+PUT /api/users/{user_id} – Description: Update user info or role.
+
+DELETE /api/users/{user_id} – Description: Delete or deactivate a user.
+
+
+(Authentication endpoints like login or refresh token would also exist, but since the focus is on internal API for the app’s functionality, they are not detailed here. We assume a secure auth layer around these admin endpoints.)
+
+Internal/LLM Interaction Endpoints:
+
+(These are optional; often the backend calls LLM services directly via SDK, not exposing them as HTTP. But for completeness, if we had microservices or needed to expose them:)
+
+POST /api/llm/inner-monologue – (Optional) The backend might have an internal route to trigger an inner monologue generation (used for testing or if the LLM is deployed as a separate service). Request would contain the structured prompt info (character id, scene state), and response would be the JSON from LLM. In a simpler design, this is just a Python function call, not an external API.
+
+POST /api/llm/dialogue-action – Similarly for dialogue generation.
+
+
+These are typically not exposed to the frontend, so they may not be part of the public API contract – the backend uses them internally when orchestrating a scene turn.
+
+All endpoints returning complex objects (CharacterDTO, SceneDTO, etc.) will conform to the schemas defined (for instance, the CharacterDTO essentially matches the dossier schema). We would include OpenAPI documentation (via FastAPI’s docs) for these models so front-end developers know the exact field structure.
+
+Error handling: Standard HTTP status codes are used (400 for bad requests, 404 for not found, 500 for internal errors, etc.). Error responses include a JSON {"detail": "... error message ..."} by default (FastAPI’s format).
+
+With this API, the frontend can perform all needed actions: browse and manage characters, run casting calls to add new characters, build and run scenes, and manage users.
+
+5. User Interface Design
+
+Overview: The user-facing component consists of two parts – the Scene Builder (where an interactive scene is set up and played out) – and the Admin Panel (which contains multiple tabs for managing Characters, initiating Casting Calls, managing Users, and reviewing Scene Logs). The UI should be clean, intuitive, and tailored for a user who might be a writer, game master, or system admin configuring the AI actors.
+
+We will describe the design of each major screen/tab along with its functional elements. (Note: Wireframes are described conceptually; actual designs would be fleshed out in a tool, but here we outline layout and functionality.)
+
+Scene Builder
+
+Purpose: Allow the user to select characters and a scenario, then generate and view a scene with those characters improvising dialogue and actions. It’s the main “storytelling” interface.
+
+Layout & Components:
+
+Scene Setup Panel: At the top or side of the Scene Builder page, there is a setup interface:
+
+A multi-select dropdown or list to choose characters from the available roster (populated from saved dossiers). The user can add 2 or more characters to the scene cast. Each selected character might display as a tag or small card (with name and role).
+
+A text input field labeled “Premise / Scene Description” where the user can type a brief description of the situation or starting prompt for the scene (e.g., “Alice and Bob meet in a cafe after years apart on a rainy evening.”).
+
+A “Start Scene” button. Once clicked, it calls the backend to create a new scene (POST /api/scenes) with the selected characters and premise.
+
+
+Scene Play Area: Once a scene is started, this area displays the running transcript and controls:
+
+A transcript log showing each turn in sequence, like a script:
+
+Each turn is typically prefaced by the character’s name and a colon in bold (like a dialogue script), followed by their spoken dialogue in quotes, and possibly an italicized action description. For example:
+
+Alice: “I never thought I’d see you here.” (Alice’s hands tremble slightly as she grips her coffee mug.)
+
+Bob: “I... I come here often, hoping to run into you.” (He forces a smile, hiding his surprise.)
+
+
+New turns get appended here dynamically.
+
+The transcript area could be a scrollable text box or chat-like bubble interface, but since this is more like a screenplay, a simple scrolling list of styled text is suitable.
+
+Next Turn Controls: A button labeled “Next Turn” or “Generate Next” that, when clicked, triggers the backend to produce the next turn (POST /api/scenes/{id}/next-turn). This could alternatively be automated (e.g., auto-generate turns on a timer or whenever the previous is done), but a manual button gives the user control to pace the generation.
+
+If manual, after each turn, the user clicks “Next Turn” to continue the scene until they decide to stop or the system decides the scene is concluded.
+
+If the scene ends (backend signals conclusion), the UI can show a notification like “🎬 Scene has concluded” and disable the Next Turn button.
+
+
+Optionally, a dropdown or toggle to select the active character for next turn (if the user wants to force which character speaks next). By default, the system might alternate or pick based on some logic, but a user override could be useful. For instance, a dropdown “Next speaker: [Alice/Bob/Auto]” where Auto lets the AI decide.
+
+Possibly a text input to insert user prompts mid-scene (for a director to intervene). For example, the user could type a direction like “(The phone rings interrupting them.)” and press an “Insert Action” button, which would inject a non-character event into the scene log. This is an advanced feature and may not be in initial scope, but worth designing for extendability.
+
+
+Scene Controls: General controls like:
+
+End Scene button to manually terminate the scene (saving the log).
+
+Reset to clear and start a new scene.
+
+Save Transcript (if not auto-saved, though Scene Logs are stored in admin panel anyway).
+
+
+
+Functional Behavior:
+
+Upon starting a scene, the UI transitions to show the transcript area ready. The premise might be shown as the first entry or above the transcript (e.g., italicized description of setting).
+
+The Next Turn button is enabled once the first scene state is ready. Each click calls the backend and awaits a response. While waiting, a loading indicator might appear in the transcript (e.g., “...”). The new turn then appears.
+
+The user can continue until satisfied or until the AI signals an end.
+
+Throughout, the UI should make it clear which character is speaking each turn (using name labels and perhaps color-coding names or avatar icons if available for characters).
+
+
+Overall, the Scene Builder UI should feel like a simple story-writing tool with AI characters contributing lines. It should hide the complexity of the inner monologue step – the user only sees the resulting dialogue/action.
+
+Admin Panel
+
+The Admin Panel is a multi-tab interface accessible by an admin user. It provides tools to manage the system’s content and users. The main tabs are Characters, Casting Call, Users, and Scene Logs. Typically, these would be arranged horizontally as a navigation bar or vertically in a sidebar.
+
+Characters Tab
+
+Purpose: View and manage all character dossiers in the system.
+
+Layout & Elements:
+
+A table or grid list of characters:
+
+Columns might include Name, Role, Source Material, and key traits or a short description. For example:
+
+Name	Role	Source Material	Description (bio)
+
+Lucy Westenra	tragic victim	Dracula (B. Stoker)	Victorian lady torn between ...
+Sherlock Holmes	detective	Sherlock Holmes (A.C. Doyle)	Brilliant consulting detective ...
+etc.			
+
+
+Each row also has an Edit button (or click row to open detail).
+
+
+Search/Filter: A search bar to filter characters by name or source. Possibly filters by role or source material (if many).
+
+Add Character: A button to manually add a new character. Clicking it might open a form or modal where an admin can input basic info (or paste a chunk of text to run a mini casting call on just that input). However, since casting call is the main method to add, this might redirect to the Casting Call tab or allow manual entry.
+
+Character Detail Panel: If a character is selected (by clicking a row), a panel or modal shows the full dossier:
+
+Perhaps formatted nicely with sections (Biography, Inner World, Physical Form, etc.) expandable or in tabs. This allows the admin to review all details generated by the dossier compiler.
+
+In edit mode, fields might become textareas for editing. The admin could tweak descriptions, fix inconsistencies, or update traits.
+
+Save changes button to update the dossier (calls PUT /api/characters/{id}).
+
+
+Possibly a Delete button to remove a character (with confirmation prompt).
+
+
+Functional Behavior:
+
+Characters tab loads with a list via GET /api/characters.
+
+Selecting or searching filters the list.
+
+Edit and save triggers the corresponding API calls.
+
+If a new character is added via form, it might call POST /api/characters (if manual). If integrated with Casting Call, the UI would likely instruct to use that pipeline for bulk additions.
+
+
+Casting Call Tab
+
+Purpose: Interface to run the casting call pipeline – ingest text and generate new character dossiers.
+
+Layout & Elements:
+
+Input Section: At the top, instructions like “Provide story text or search topic to extract characters.” The admin can choose one of:
+
+Text Upload: A textarea or file upload control to input raw text (e.g., paste a story excerpt or upload a .txt file).
+
+Topic Search: A text field to enter a topic/keyword (with an explanation “search Project Gutenberg for this topic”). Also a numeric field for how many books to fetch.
+
+A Start Casting Call button to initiate processing.
+
+
+Progress/Status Display: Once started, the UI shows status:
+
+If asynchronous, maybe a progress indicator: “Fetching books... extracting characters...”.
+
+Could list the titles of books fetched.
+
+Results Display: A list of extracted character candidates (once extraction is done):
+
+Each candidate displayed with the info returned: Name, Role, traits, etc., possibly in a card or list item. For example:
+
+Name: Lucy Westenra (tragic victim)
+Traits: romantic, anxious, fragile
+Contradictions: flirtatious yet self-sacrificing
+Emotional Tone: dreamy and vulnerable
+Source Excerpt: "Lucy... [snippet]..."
+[Select checkbox]
+
+Each has a checkbox or “Select” toggle. There could also be a “Select All” if one wants all.
+
+If duplicates or very similar characters were found, the UI might highlight them (e.g., showing a warning icon as the script does with duplicates, so the admin can decide).
+
+
+Actions:
+
+Compile Dossiers button – enabled after at least one character is selected. When clicked, it triggers the dossier compilation (POST /api/casting-call/compile with the selected IDs). Perhaps show a confirmation “Generate detailed dossiers for selected characters?”.
+
+After clicking, show a loading state (“Compiling dossiers...”) as the LLM works.
+
+
+Outcome: Once done, display a success message like “🎭 Compiled X dossiers successfully.” The new characters are now in the Characters list.
+
+Optionally, provide quick links/buttons to view those characters in the Characters tab (or auto-refresh the Characters tab data).
+
+Possibly log any errors if a dossier failed to generate.
+
+
+
+Functional Behavior:
+
+This tab orchestrates multiple API calls: starting with either contacting an external API (via backend) for books or using provided text, then calling the extraction prompt. The UI likely polls or waits for results.
+
+The interface should handle the case of no characters found (show “No characters found for this input.”).
+
+It should guide the admin through the process step by step (maybe disabling the compile button until selection is made).
+
+
+This design makes the casting process accessible to non-technical users, turning it into a semi-automated workflow with human validation in the middle.
+
+Users Tab
+
+Purpose: Manage user accounts for the system (admin accounts, or possibly end-users if the platform is multi-user).
+
+Layout & Elements:
+
+A list of users in a table format:
+
+Columns: Email, Role, Status (active/invited).
+
+Maybe Name if such info is stored.
+
+Actions per user: Edit (to change role or reset password), Delete/Deactivate.
+
+
+Add User button:
+
+Opens a form to create a new user. Likely just email and role selection (and perhaps sends an invite email out-of-scope).
+
+
+If editing a user: fields to change their role (e.g., from “user” to “admin” or vice versa) or to deactivate.
+
+Possibly a password reset or send invite option for each user.
+
+
+Functional Behavior:
+
+Listing calls GET /api/users.
+
+Add calls POST /api/users.
+
+Edit calls PUT /api/users/{id}.
+
+Remove calls DELETE /api/users/{id}.
+
+This tab is straightforward administrative CRUD for user accounts.
+
+
+Security note: Only super-admins should see this tab typically. Since our context is an internal tool, we assume the primary user is an admin who sees all tabs.
+
+Scene Logs Tab
+
+Purpose: Allow the admin to review past generated scenes (for quality control, or to reuse a good scene).
+
+Layout & Elements:
+
+List of past scenes: likely a table or list where each entry includes:
+
+Scene ID or a short title (maybe the premise or an auto-generated title like “Scene 12 - Alice & Bob Cafe”).
+
+Date/Time of creation or last update.
+
+Participants: the character names involved.
+
+Turn Count or duration (how many exchanges happened).
+
+Possibly a flag if it Concluded or was manually stopped.
+
+
+Possibly a filter by character or search by keyword (to find scenes where a certain character appeared, or containing certain text).
+
+View Details: Each scene entry could have a “View” or “Open” button. Clicking it could:
+
+Expand an inline panel or navigate to a dedicated Scene Detail view. This shows the full transcript of the scene (just like it was in the Scene Builder, but read-only).
+
+It may also show summary info: the premise, which characters, and any analytic info (if the Scene Analyzer LLM was used, maybe show subtext tags or a summary).
+
+Perhaps allow exporting the transcript (copy or download as text).
+
+
+Delete Log: Option to delete a scene log if needed (with confirmation).
+
+
+Functional Behavior:
+
+On load, calls GET /api/scene-logs to populate the list.
+
+Viewing a specific log might call GET /api/scenes/{id} to get the full details/transcript.
+
+This is read-only; no generation happens here.
+
+
+Design-wise, this is akin to a history or archive section. It helps in evaluating how scenes play out and for debugging (since the method allows inspecting if something went wrong by reading transcripts and possibly correlating with internal monologues if those were stored or logged internally).
+
+General UI/UX considerations:
+
+The UI should use a consistent design system. The Scene Builder and Admin Panel might be separate pages or combined with a nav.
+
+Admin Panel likely has tabs as described. Scene Builder might be the main view for interactive use.
+
+Ensure paragraphs of text (like in transcripts or dossier details) are presented clearly – possibly using typography (italic for stage directions, etc., as mentioned).
+
+Use icons or small indicators where helpful (e.g., an icon for deleting, editing, a spinner for loading).
+
+Provide confirmations for destructive actions (deleting characters, users, etc.).
+
+Because the system involves waiting for LLM responses, showing loading states and progress feedback is critical to good UX (so the user isn’t left wondering if something is happening).
+
+Responsiveness: likely this is a web app used on desktop primarily, but design should consider flexible sizing (panels can expand, tables scroll, etc.).
+
+
+By designing the UI components in this modular way, we ensure the user can leverage the full system: create rich characters, set up scenes, and watch the AI-driven narrative unfold, all while maintaining oversight and the ability to tweak parameters via the admin tools.
+
+6. Infrastructure Setup & Deployment Guide
+
+Overview: This guide outlines how to deploy the application using a free-tier infrastructure stack, which includes Vercel for hosting the frontend, Fly.io (or Render) for the backend, and Supabase for the database (and possibly authentication). We assume a separation between the front-end (likely a Next.js or React app) and the back-end (FastAPI Python app), and that we want to minimize cost by using free-tier offerings. Below are the steps and configurations for setting up each component and integrating them.
+
+1. Frontend Deployment on Vercel
+
+Step 1: Prepare the Frontend – Ensure the frontend application is ready for deployment:
+
+If using Next.js or a static React build, set up the project with all environment-specific config (for example, the URL of the backend API).
+
+In the code, the API calls (from the UI) should point to the production backend URL (which we will get from Fly.io/Render deployment). Use an environment variable for the API base URL for flexibility.
+
+
+Step 2: Vercel Account and Project – Log in to Vercel (create an account if needed).
+
+Import the frontend project. If the code is on GitHub, you can use Vercel’s GitHub integration: click “New Project” and select the repository.
+
+Configure the project settings:
+
+Set the Framework Preset (e.g., Next.js, or Create React App, etc., Vercel auto-detects many).
+
+Add any Environment Variables needed. For instance, REACT_APP_API_URL or NEXT_PUBLIC_API_URL pointing to the backend API endpoint (you can leave it blank until backend is deployed, then update).
+
+If using Next.js with getServerSideProps, etc., ensure those work on Vercel’s Node environment (most likely fine).
+
+
+Hit Deploy. Vercel will build and deploy the app. On free plan, a *.vercel.app domain will be assigned (you can later add a custom domain if needed).
+
+
+Step 3: Verify Frontend – Once deployed, access the Vercel-provided URL. It should load the app. Of course, at this stage the API might not be ready, so any data fetching might fail – that’s expected until backend is up. We can still verify static parts and overall UI.
+
+2. Backend Deployment on Fly.io (or Render)
+
+You can choose either Fly.io or Render for hosting the FastAPI service (both have free tiers). Here we describe using Fly.io (the steps for Render would be analogous: you’d create a web service, specify build and environment, etc.).
+
+Step 1: Prepare the Backend – Ensure the FastAPI app is containerized or can be containerized:
+
+Create a Dockerfile for the FastAPI app. For example:
+
+FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+
+(Assuming app.main:app is where FastAPI app is defined, and 8080 as the port.)
+
+Test building the container locally if possible.
+
+
+Step 2: Fly.io Setup – Install Fly CLI and create an account if not already.
+
+Run flyctl launch in the backend project directory. This will prompt some questions:
+
+Choose an app name (or generate one).
+
+Select a region (choose something near your user base, or default – e.g., flyctl launch often suggests a region like iad or sjc).
+
+Set up a Postgres if needed (Fly can create one, but we’ll use Supabase for DB, so select no integrated DB).
+
+
+The CLI will create a fly.toml config file. Review it:
+
+Ensure the internal_port matches 8080 (if that’s what uvicorn listens on).
+
+Check that a volume is not needed (we likely stateless, except if using file storage – but we have Supabase for data).
+
+
+Environment Variables: In fly.toml, under [env], set necessary env vars:
+
+e.g. SUPABASE_URL, SUPABASE_SERVICE_KEY (for connecting to the database),
+
+OPENAI_API_KEY or OLLAMA_URI etc., if the backend will call LLM APIs (these should be set to actual secrets).
+
+
+If calling external APIs like OpenAI, also consider Fly’s no egress cost region or limit on free tier (Fly allows some free egress, should be okay for dev).
+
+
+Step 3: Deploy to Fly – Run flyctl deploy. It will build the Docker image (or use one if configured) and deploy to Fly’s infrastructure.
+
+Monitor the deployment logs in terminal or on Fly dashboard to see if the app started successfully.
+
+Once deployed, Fly will assign a public URL (something like your-app.fly.dev).
+
+Verify the FastAPI is running by hitting https://your-app.fly.dev/docs (FastAPI’s automatic docs) or a health endpoint if you have one. If everything is configured, the docs should load, showing your endpoints.
+
+
+(Alternative with Render:
+
+Create a new Web Service on Render.com.
+
+Connect the Git repo or Docker image.
+
+Specify build command (if not using Docker, e.g., pip install -r requirements.txt) and start command (uvicorn app.main:app --port 10000 --host 0.0.0.0 for Render which expects port 10000 by default).
+
+Set environment variables in Render’s dashboard (similar to above).
+
+Deploy and get a URL like your-app.onrender.com.
+
+Ensure to use a health check path so Render knows the service is up (or it will show as failed). Usually Render pings “/” or you can configure it.)
+
+
+Step 4: Configure Frontend with Backend URL – Now that backend is running at a known URL, update the Vercel frontend’s env config for the API base URL:
+
+Go to Vercel project settings, add or edit NEXT_PUBLIC_API_URL (or similar) to https://your-app.fly.dev (include the scheme).
+
+Redeploy frontend (Vercel redeploys automatically on config change or git push).
+
+After that, the frontend should be able to communicate with the backend.
+
+3. Database Setup on Supabase
+
+Step 1: Create Supabase Project – Log in to Supabase (free tier). Create a new project:
+
+Choose a name, region, and secure a strong password for the default Postgres database it provisions.
+
+Once created, you’ll have a Postgres database and Supabase dashboard for it.
+
+
+Step 2: Define the Database Schema – In Supabase (which is essentially a hosted Postgres), set up the tables for:
+
+Characters: fields corresponding to the Character Dossier. For instance:
+
+id (uuid or text primary key, could use the character_id as primary key).
+
+name (text), role (text), source_material (text).
+
+biographical_summary (text), etc., or potentially a JSONB column to store the whole dossier. An approach could be to have a dossier JSONB column that directly stores the dossier schema for flexibility. Alternatively, break out some frequently queried fields as columns (e.g., name, role for listing; everything else in a JSON).
+
+
+Scenes: to log scene transcripts:
+
+id (uuid PK), summary (text), created_at, is_active, etc.
+
+
+SceneTurns: if storing each turn in a separate table (so that a scene’s transcript is a set of related turn records):
+
+id, scene_id (FK to Scenes), turn_index, speaker_id (FK to Characters), dialogue (text), action (text), timestamp.
+
+Alternatively, store the whole transcript as JSON in Scenes table, but that’s less normalized.
+
+
+Users: if managing admin users here (though Supabase can also manage authentication with its built-in Auth if desired):
+
+id, email, password_hash (if not using Supabase Auth), role.
+
+If using Supabase Auth (which provides magic links, etc.), you might rely on that and not need a separate table for users (just use the auth schema and maybe a profiles table).
+
+
+Vector index tables: If you plan to store vectors in Supabase (Supabase offers pg_vector extension):
+
+psych_index table with character_id FK and vector + metadata (paradox, fear, etc.).
+
+linguistic_index similarly.
+
+However, many will use an external vector DB. For a free solution, you could use the pgvector in Supabase. Ensure to enable the pgvector extension in the SQL editor (CREATE EXTENSION vector;) if you go this route.
+
+
+Use Supabase’s Table Editor UI or the SQL editor to create these tables. Supabase also provides row-level security toggles – for an internal app, you might disable RLS or use service role for the backend.
+
+
+Step 3: Connect Backend to Supabase – In the FastAPI app, use Supabase:
+
+Option 1: PostgREST (Supabase auto REST): Supabase provides auto-generated REST endpoints for the DB. But since we have our own API, we may not use those.
+
+Option 2: Use a Postgres client (SQLAlchemy or asyncpg) in FastAPI. Supabase gives a connection string (Host, DB name, user, password).
+
+Set these as environment variables in Fly/Render (e.g., DATABASE_URL or the separate components).
+
+In FastAPI, configure the database connection (like using SQLAlchemy to define models corresponding to the tables, or simple queries).
+
+
+Option 3: Use Supabase Python SDK. Supabase has an API and library, but that might just call the PostgREST endpoints under the hood. Using direct DB connection is straightforward for our use case.
+
+Ensure the SUPABASE_SERVICE_KEY (which is the secret API key with full DB perms) is kept secret (store it in Fly’s secrets).
+
+If using direct DB connection, you don’t need the service key, just the DB credentials.
+
+Step 4: Migrate Data (if needed) – If you had some initial characters (maybe from testing or dev), you can insert them. But likely you start empty in prod. You might consider creating a SQL migration or use an ORM migration tool (like Alembic for SQLAlchemy) to set up the schema reproducibly. On a free project, it might be acceptable to manually set up once.
+
+4. Integration and Configuration
+
+CORS: Since the frontend is on Vercel (e.g., vercel.app domain) and backend on Fly (fly.dev domain), configure CORS in FastAPI to allow the frontend domain:
+
+Use FastAPI’s middleware to allow origins for the Vercel domain (e.g., https://your-frontend.vercel.app). In development, also localhost.
+
+This prevents cross-domain issues when the front-end calls the back-end.
+
+
+Environment Variables Recap:
+
+In Vercel: NEXT_PUBLIC_API_URL set to backend URL.
+
+In Fly/Render:
+
+DB connection settings (for Supabase).
+
+Possibly an OPENAI_API_KEY if using OpenAI for LLM, or other model API keys.
+
+Supabase service key if using Supabase client.
+
+Any other config (like a SECRET_KEY for FastAPI sessions if any, etc.).
+
+
+Supabase: no env config needed beyond storing what you created.
+
+
+Verification:
+
+After both front and back are up, navigate to the frontend app URL. Try logging in (if auth) or directly use the UI.
+
+Test retrieving character list (should be empty initially but check if the request succeeds).
+
+Create a test character via UI or run a casting call to see end-to-end.
+
+Generate a scene to verify the pipeline works with the live LLM. Note: If using OpenAI’s API, ensure the API key is correctly set and that usage is within free tier or credit limits.
+
+
+5. Additional Setup (Optional Enhancements):
+
+Monitoring: On free tier, we can still set up basic monitoring:
+
+Vercel and Fly provide logs. Use fly logs to view backend logs, which will include any errors or printouts from FastAPI.
+
+Supabase has a dashboard for DB stats.
+
+Consider adding an endpoint like /health in FastAPI to periodically check.
+
+
+Domain: If a custom domain is desired (for either front or back), both Vercel and Fly allow adding domains. On free tier, you’d manage DNS and possibly need to upgrade for SSL on custom domains (Vercel provides SSL for custom domains even on free, Fly does too via Let’s Encrypt).
+
+Scaling in free limits: Note that Vercel’s free tier has a build minute quota and bandwidth limit, and Fly’s free tier has limited VM size (256MB memory, etc.). This should be fine for testing but watch out if usage grows.
+
+
+Following these steps, you will have the frontend served on Vercel and the FastAPI backend on Fly/Render, with Supabase providing persistence – all on free-tier services. This setup satisfies the requirements of the Free Hosting/Infra Plan while remaining (mostly) within the free usage limits of each platform.
+
+7. Scalability Strategy Migration Plans
+
+The current architecture (as described above) works on a small scale and on free-tier services. To scale up for more users, more complex scenes, or higher reliability, each component should be migrated or enhanced in stages. The “Scalability Strategy” outlined in the proposal includes several key improvements. Here we detail a high-level migration plan for each item, explaining how to technically upgrade when the time comes:
+
+a. Monolithic to Microservices (Orchestrator & Actors): Currently, the FastAPI backend handles everything (scene state, LLM calls for all characters, etc.). To scale:
+
+Plan: Refactor into multiple services: a central Narrative Engine service (orchestrator) and separate Character services that handle character-specific LLM calls. For example, each character service could be responsible for generating its inner monologue and dialogue given a request.
+
+Migration Steps:
+
+1. Identify logic that can be isolated per character (the LLM prompt execution primarily).
+
+
+2. Create a new FastAPI (or Node, etc.) service for Character AI. This service exposes an endpoint to handle "generate turn for Character X with given context". Internally it calls the LLM with the prompts and returns the result.
+
+
+3. Deploy this character service as a separate scalable unit (e.g., on Kubernetes or as multiple Fly apps). Multiple instances can run to handle parallelism.
+
+
+4. Modify the main Narrative Engine to call these services (e.g., via HTTP or a message queue) instead of calling LLM directly. It becomes the coordinator: receiving a scene turn request, delegating to the appropriate character service, waiting for responses, then aggregating.
+
+
+5. Introduce a message broker (like Pub/Sub or RabbitMQ) for communication as needed. For example, the orchestrator publishes a "request.inner_monologue" event, which a character service subscribed to that character picks up, etc.
+
+
+6. Test with a few microservices and scale out. Use Kubernetes or similar to manage service discovery (as noted, a StatefulSet for the orchestrator to maintain scene state, and Deployments for stateless characters).
+
+
+
+Considerations: Ensure state consistency – possibly use an external state store or sticky sessions to not lose track of scene state. The pub/sub pattern prevents one slow character from blocking others, increasing fault tolerance.
+
+
+b. Vector Store Upgrade: Initially, we might use Supabase (Postgres + pgvector) for vector storage to keep things simple. As the number of characters and memory entries grows, a dedicated vector database is more scalable.
+
+Plan: Migrate to a specialized vector DB like Pinecone, Weaviate, or Chroma (hosted) for the RAG system.
+
+Migration Steps:
+
+1. Evaluate vector DB options based on cost and performance. For example, Pinecone offers a managed service with high scalability; open-source Chroma or Weaviate could be self-hosted.
+
+
+2. Implement parallel writes to the new vector store while still writing to the old (so both are kept up to date during transition).
+
+
+3. Develop integration in backend: abstract a vector store interface so that switching from Supabase to Pinecone is mostly config change.
+
+
+4. Backfill existing vectors: take all existing character data and index them in the new store (write a script to push dossiers to Pinecone indexes in the structured way, e.g., separate namespaces for psych_profile_index, linguistic_profile_index).
+
+
+5. Test retrieval from the new store in staging: ensure the quality of results is at least as good (embedding settings, dimension, etc., might differ).
+
+
+6. Flip the read path: have the backend start querying Pinecone for memory retrieval instead of Supabase. Monitor for any issues.
+
+
+7. Once stable, decommission or scale down use of the old store for vectors. Supabase can still hold canonical data, but the heavy similarity search workload goes to a service built for that (faster queries, better similarity scaling).
+
+
+
+Considerations: Using a vector DB also opens the door to more advanced similarity search features and metadata filtering, which we can leverage to maintain performance as data grows.
+
+
+c. LLM Scaling and Cost Management: The initial system might rely on OpenAI’s GPT-4 API or similar, which can become slow or expensive at scale.
+
+Plan: Gradually transition to more efficient or fine-tuned models, possibly hosting a custom model.
+
+Migration Steps:
+
+1. Caching: Implement a caching layer for LLM responses where possible. For example, if identical inner monologue prompts are called repeatedly (unlikely in production, but maybe during dev or retests), cache results to avoid redundant calls.
+
+
+2. Model Fine-tuning or Custom Models: Identify if smaller models (e.g., Llama 2 fine-tuned on dialogue) could handle some tasks. Possibly use OpenAI GPT-3.5 for inner monologue and only GPT-4 for final dialogue if quality difference is minor. This optimization can cut costs significantly.
+
+
+3. LLM Hosting: Experiment with open-source models served on your own infrastructure. For example, use Ollama or HuggingFace Text Generation Inference to host a 13B parameter model that can handle the dialogue in real-time. Transition certain calls to use these models (perhaps as a fallback or for less critical tasks).
+
+
+4. Multi-LLM Orchestration: Use a service like OpenRouter or a custom router to dynamically choose model based on content. For instance, short simple scenes might be handled by a cheaper model, complex ones by GPT-4.
+
+
+5. Budget Monitoring: Implement monitoring on API usage (OpenAI’s usage API or logs) to detect spikes. As usage grows, consider applying for rate limit increases or enterprise plans, or migrating fully to a self-hosted solution when it becomes cost-effective.
+
+
+
+Considerations: Fine-tuning a model on the style needed (including understanding of the schema output) could allow offline inference to replace API calls. The trade-off is maintaining ML infrastructure (which might involve GPU hosting, etc.). A gradual approach is best: start with partial substitution and measure quality.
+
+
+d. Database Scaling: Supabase (Postgres) will eventually need scaling if we store a lot of scene logs, characters, user data, etc.
+
+Plan: Move from single-instance Postgres to a more scalable setup. Supabase itself can scale (to larger instances, read replicas). Alternatively, consider sharding or moving certain data to specialized stores.
+
+Migration Steps:
+
+1. Enable read replicas on Supabase or upgrade the instance to handle more load (vertical scaling as a first easy step).
+
+
+2. If writes become heavy (e.g., logging every turn, heavy user traffic), consider splitting data:
+
+Keep critical transactional data (user accounts, current scenes, etc.) in Postgres.
+
+Offload large content like scene transcripts to a document store or Supabase storage (maybe store transcripts as files or JSON in S3-like storage).
+
+Or use time-series DB for logs if analyzing them.
+
+
+
+3. If necessary, migrate to a managed Postgres with horizontal scaling (though true sharding is complex). Many will stick to a single powerful DB plus caching.
+
+
+4. Implement caching for frequent reads: e.g., character dossiers could be cached in memory or a Redis layer, as they don't change often. This reduces DB hits under load.
+
+
+5. Periodically archive or prune old data (scene logs that are very old could be archived to cold storage) to keep the operational dataset smaller.
+
+
+
+Considerations: Supabase’s free tier will certainly be outgrown; their paid tiers or self-hosting might come into play. Ensure to plan for backups and potential migration downtime.
+
+
+e. Frontend and API Throughput: As more concurrent users run scenes, the system must handle many simultaneous LLM calls and UI updates.
+
+Plan: Scale out the backend API processes and optimize the frontend delivery.
+
+Migration Steps (Backend API):
+
+1. If on Fly.io, increase the VM size or number of instances (Fly allows scaling count). On Render, increase plan or instances.
+
+
+2. Introduce an API Gateway or Load Balancer if not already present to distribute requests among instances.
+
+
+3. Utilize background tasks (e.g., Celery or FastAPI’s BackgroundTasks) for any long operations so the API response is quick or uses async appropriately. Scenes generation might already be async via awaiting the LLM call; if not, making it async will free threads.
+
+
+4. Monitor performance: use APM tools to find bottlenecks. Possibly the LLM calls dominate time; not much to optimize there except concurrency.
+
+
+5. If microservices are in place (from step a), scaling horizontally is easier – just add more actor service instances to handle more simultaneous character generations.
+
+
+6. Use CDN for static assets from frontend (Vercel does this automatically for static files).
+
+
+7. On the frontend, ensure that the UI can handle real-time updates elegantly (perhaps use web sockets or server-sent events for pushing new dialogue instead of polling).
+
+
+
+Migration Steps (Frontend):
+
+1. If the frontend grows heavy, ensure code-splitting is in place so initial load is fast.
+
+
+2. Move to an edge network or use Vercel Edge Functions if some logic can be done closer to user (though most heavy lifting is in backend).
+
+
+3. If multi-user with heavy usage, consider whether SSR or static generation is needed. Likely not, as it's an interactive app.
+
+
+4. Ensure analytics are in place to see how users are using it (to foresee which parts need scaling).
+
+
+
+Considerations: The system’s primary heavy operations are LLM calls – which don’t exactly scale by typical web scaling (they rely on external API or heavy compute). So managing concurrency and perhaps queueing will be crucial to avoid overload (e.g., if 100 users press "Next Turn" at once, do we send 100 LLM requests concurrently? We might need rate limiting or queuing in extreme cases).
+
+
+f. Observability (Monitoring & Logging): As we scale, debugging and monitoring become vital.
+
+Plan: Introduce comprehensive logging, monitoring, and alerting.
+
+Migration Steps:
+
+1. Set up centralized logging (e.g., use a service like Logtail or ELK stack) to aggregate logs from all components (front end errors, backend logs, LLM responses maybe trimmed).
+
+
+2. Set up monitoring for LLM usage specifically – track response times for calls, error rates (timeouts or failures from API).
+
+
+3. Use uptime monitoring for each service (Pingdom, UptimeRobot for endpoints).
+
+
+4. Set up performance monitoring: APM tools like Sentry (for errors, performance on frontend and backend) or New Relic.
+
+
+5. Implement custom metrics – e.g., count of scenes generated per hour, average turns per scene, etc., possibly using an analytics tool or custom logging to Supabase.
+
+
+6. Configure alerts – e.g., if LLM call failure rate > X% or response time > Y seconds, send alert; DB CPU high, etc.
+
+
+7. Use these insights to continuously adjust scaling parameters (auto-scale triggers, etc.).
+
+
+
+Considerations: Some of these might require paid tiers (e.g., extensive APM on free may be limited), but as scaling typically coincides with paying customers or funding, those costs can be justified.
+
+
+g. Kubernetes Deployment: Eventually, migrating the architecture onto Kubernetes might be considered (the proposal explicitly mentions GKE).
+
+Plan: Containerize all services and deploy on a Kubernetes cluster for more controlled scaling and reliability.
+
+Migration Steps:
+
+1. Write Kubernetes manifests or Helm charts for each component: Frontend (could be static on Vercel, or we containerize and serve via nginx in K8s if needed), Backend orchestrator, Character service(s), perhaps a CronJob for periodic tasks, etc.
+
+
+2. Set up Kubernetes on a cloud provider (GKE, or managed K8s on AWS, etc.). Possibly start with a low-tier cluster that can still be free/cheap (e.g., using credits or a local K3s for dev).
+
+
+3. Use Kubernetes primitives like Deployments for stateless services (characters), StatefulSet for orchestrator (so it retains scene state under a stable network ID).
+
+
+4. Set up ConfigMaps/Secrets for environment configs instead of .env files.
+
+
+5. Use Kubernetes Services for internal service discovery (or an event bus as described).
+
+
+6. Migrate the database to a cloud database service (could still be Supabase or Cloud SQL).
+
+
+7. Once tested, route traffic to the cluster. This is a significant step that might only be done when absolutely necessary (when fine-grained control and scale surpass what Fly/Render can do easily).
+
+
+
+Considerations: Kubernetes introduces complexity; use it when the number of services and scale demands it. The advantage is aligning with the orchestrator/actor pattern and event-driven design nicely, and it eases complex deployments (like sidecar GPUs for models, etc., if we go that route).
+
+
+
+In summary, the scalability strategy is to gradually break the system into specialized components and use managed services suited for each task (vector DB for memory, microservices for parallel character handling, scalable databases and infrastructure). Each migration should be done one-at-a-time, with careful testing to ensure the system continues to function correctly and the character performances remain consistent (our top priority is maintaining the quality of the dramatic output while scaling quantity).
+
+8. Project Roadmap and Indexed Deliverables
+
+Finally, we present an indexed project roadmap that synthesizes all the above deliverables into a logical sequence. This roadmap serves as a master plan, indicating the order in which to tackle development tasks and how each artifact (schemas, diagrams, prompts, etc.) fits into the build process. By following this roadmap, the team can start with a solid foundation and incrementally build toward a deployed, scalable system.
+
+Phase 1: Foundational Data Models and Schemas
+
+1. Define Character and Scene Schemas – Establish the core JSON schemas for Character Dossiers, Scene State Manager, Vector Indexes, and In-Scene Grounding (Deliverable 1). These schemas form the backbone of the system’s data. Implementation steps:
+
+Create schema files (JSON or Pydantic models) for each.
+
+Validate example data (e.g., create a sample character dossier JSON and ensure it matches the schema).
+
+Set up the database tables (or JSON columns) according to these schemas.
+
+
+
+2. Implement “Living Dossier” Data Layer – Build the structure for storing and querying dossier information:
+
+Set up the vector stores (or placeholders) for the psych_profile_index and linguistic_profile_index (could be simple lists or in-memory in early dev, with interfaces ready for vector DB).
+
+Implement basic retrieval functions for memories and traits (initially can be simple filter/search until real embedding is integrated).
+
+
+
+
+Phase 2: Core Logic and LLM Pipeline
+3. Develop Scene Generation Pipeline – Code the sequence of steps that generate a scene turn (Deliverable 2, core backend logic). This includes:
+
+Implementing the sequence as per the design (retrieve context, call inner monologue LLM, then dialogue LLM, update state).
+
+Writing and integrating the Inner Monologue prompt template and Dialogue & Action prompt template into the code (these prompts are formulated in the design above).
+
+Ensuring the outputs (JSON) are parsed and correctly update the Scene State. Use dummy LLM responses or a stub for initial testing.
+
+Testing the pipeline with a simple scenario (maybe using a local LLM or a test double if API not yet connected) to verify that state flows correctly from one step to the next.
+
+
+4. LLM Integration – Connect the pipeline to actual LLM APIs:
+
+Integrate OpenAI API or chosen LLM backend for making the calls. Start with one character turn end-to-end.
+
+Verify that the prompt formatting yields the expected JSON output. Adjust as necessary (this may involve prompt tuning).
+
+Handle exceptions or timeouts from the LLM calls gracefully.
+
+
+
+5. Scene Conclusion Logic (Basic) – Implement a simple placeholder for scene stopping criteria (until the full analyzer is built, maybe just a max turn count or manual stop). Though Calls 3-5 are not fully implemented, ensure the system can manually or via a simple rule end a scene to prevent infinite loops.
+
+
+
+Phase 3: Casting Call Subsystem
+6. Implement Character Extraction – Develop the Batch Character Extractor functionality (Deliverable 3 prompts and workflow):
+
+Integrate an endpoint or service that accepts text input (or Gutenberg search topic) and uses the casting director prompt to get candidate characters.
+
+Use the prompt template in the code and parse the JSON result.
+
+Store the candidates temporarily (or just hold in memory for the review step).
+
+Test this with a sample text (maybe a Project Gutenberg excerpt) to ensure it returns plausible results.
+
+
+7. Implement Review & Selection Logic – Create a way to mark which extracted characters to keep:
+
+If using a database, save all candidates in a “casting_call_log” table with a flag for selected.
+
+Or keep in a session structure on backend; since we have an Admin Panel UI for selection, tie it with that (likely easier after UI built, but backend should support a way to mark choices, e.g., an endpoint to accept a list of chosen character_ids).
+
+
+
+8. Implement Dossier Compilation – Use the dossier compiler prompt to generate full dossiers for selected characters:
+
+For each selected candidate, call the LLM with the compiled prompt (including the schema). This might be done in a loop or asynchronously if many.
+
+Parse and validate the returned dossier JSON against the schema (to ensure completeness).
+
+Save the new character to the Characters database.
+
+Test with one character selection to verify a proper dossier is created and stored.
+
+
+
+9. Casting Call Integration – Tie the steps together, possibly behind a single orchestrating function or API:
+
+E.g., a single admin action triggers: fetch text -> extract -> allow selection -> compile. In early dev, this could be done sequentially in code. For a better UX, break it up (which we will cover in UI phase).
+
+Ensure logging and error handling (if the LLM returns malformed JSON, handle that by retrying or error messaging).
+
+
+
+
+Phase 4: API Endpoints & Backend Services
+10. Design API Endpoints – Implement the FastAPI endpoints outlined in Deliverable 4 (API Contract): - Characters endpoints (GET/POST/PUT/DELETE /characters). Connect them to the database models and ensure they return the CharacterDTO (possibly using Pydantic schemas). - Casting call endpoints (/casting-call and related). These will call the functions from Phase 3. If asynchronous, possibly use background tasks or websockets, but to start, synchronous for simplicity is okay (small texts). - Scene endpoints (/scenes, /scenes/{id}/next-turn, /scenes/{id} etc.). Connect to the pipeline from Phase 2. When next-turn is called, use the pipeline to produce a turn and update the stored scene state/transcript. - Scene Logs (GET /scene-logs). This just queries past scenes from DB. - Users endpoints (/users) if needed. If using Supabase Auth, this might be minimal; otherwise implement basic CRUD for user accounts. - Secure these endpoints (if we need auth, integrate a simple JWT or API key for now, since it’s internal for admin usage initially). - Use FastAPI’s documentation (OpenAPI) to verify the models and example responses.
+
+11. Database Wiring – Ensure all endpoints and logic are using the database (Supabase) as the source of truth:
+
+Characters: reading/writing to the characters table.
+
+Scenes: create a scene record on POST /scenes, update turn data on each turn generation (in transcript or separate turns table).
+
+Perhaps implement an ORM or simple SQL layer to help (SQLAlchemy models for Character, Scene, Turn).
+
+Test that data persists across server restarts and is retrievable as expected.
+
+
+
+12. Internal Module Refactoring – At this point, refactor code organization if necessary:
+
+Separate modules for dossier management, scene generation, casting call, user management for clarity.
+
+This sets stage for easier maintenance and microservice separation later.
+
+
+
+
+Phase 5: Frontend Development (UI Implementation)
+13. Build Scene Builder UI – Using a framework (React/Next.js likely), implement the Scene Builder interface (Deliverable 5): - Create components for selecting characters (perhaps a multiselect dropdown or a list with checkboxes). - Component for entering premise. - A “Start Scene” button that calls POST /api/scenes and then opens the transcript view. - The transcript view component: initially empty, then append turns as they come. - “Next Turn” button triggers the next-turn API and on response, updates state to add the new turn to the transcript. - Manage loading states (disable Next Turn while waiting). - If possible, integrate streaming or partial update (this can be an enhancement: using server-sent events to stream dialogue tokens for dramatic effect, but that’s optional; initial version can wait for full completion). - Test with a dummy backend (or the real one if ready) by stepping through a scene.
+
+14. Build Characters Tab UI – Implement the Characters management interface:
+
+Display list of characters (call GET /api/characters on mount).
+
+Table or list component. Possibly use a data grid library for convenience.
+
+Edit modal or separate page for character details. This fetches GET /characters/{id} and shows dossier fields. For editing, allow toggling fields to input mode.
+
+Save button calls PUT /characters/{id}. Also handle delete with a confirmation dialog tied to DELETE endpoint.
+
+Ensure the UI updates after edits or deletion (e.g., refresh list or remove item).
+
+Consider pagination if lots of characters, but initially not needed.
+
+Test by creating a dummy character via API and see if UI shows it properly.
+
+
+
+15. Build Casting Call Tab UI – Implement the interface for casting call:
+
+Provide input options as per design (text area for direct text, or fields for topic & number).
+
+When user submits, call POST /casting-call. Since that might be async/long, one approach:
+
+Immediately show a “processing…” state.
+
+Poll GET /casting-call/results or receive results in the same response. If synchronous for now, the response could contain the candidates directly.
+
+
+Once candidates are available, display them as a list with checkboxes.
+
+Provide “Select All” if needed.
+
+On clicking “Compile Dossiers”, call POST /casting-call/compile with selected IDs. Again handle waiting state.
+
+After completion, show a success message. The compiled characters should now be in the main character list; perhaps prompt the admin to go to Characters tab or automatically update the Characters tab (maybe by refetching it).
+
+Handle errors (e.g., if LLM fails to return JSON for one character, perhaps show which one failed).
+
+Test using a small excerpt and see the end-to-end UI flow.
+
+
+16. Build Users Tab UI – Implement user management interface:
+
+Table of users (GET /users).
+
+Form to add (POST /users).
+
+Role dropdown in each row or in edit modal (PUT /users).
+
+Possibly toggle active/inactive or delete (DELETE /users).
+
+Given this is straightforward CRUD, use existing UI patterns from Characters tab.
+
+Test by creating a dummy user via API and verifying UI.
+
+
+
+17. Build Scene Logs Tab UI – Implement scene logs review interface:
+
+List past scenes (call GET /scene-logs).
+
+For each entry, maybe just display summary and a “View” button.
+
+On view, call GET /scenes/{id} to get full transcript. Display it similarly to the Scene Builder transcript but read-only.
+
+Possibly allow export (could just be selecting text to copy, or a “Download” which could be done by generating a text blob).
+
+Test by running a scene in Scene Builder, ending it, then going to logs to see if it appears and can be opened.
+
+
+
+18. Integrate UI with Auth (if applicable) – If there’s a login system (maybe Supabase Auth or a simple login for admin):
+
+Implement a login page in frontend that obtains a token.
+
+Store token (in memory or cookie) and attach to API calls (e.g., Authorization header).
+
+Protect routes (if using Next.js, use middleware or simple conditional rendering).
+
+This might be optional if the tool is used only internally by one user in dev phase.
+
+
+
+
+Phase 6: Testing and Quality Assurance
+19. End-to-End Testing – Conduct thorough tests of the entire flow: - Create a few characters via Casting Call, ensure they appear in Characters tab. - Start a scene with those characters, run multiple turns, ensure the narrative is coherent. - Verify scene transcript saving and appearing in logs. - Test editing a dossier and then using that character in a new scene (to see if changes reflect). - Test edge cases: e.g., no characters selected in casting call, or scene generation when a character has no memories (should still work). - Fix any bugs or prompt issues discovered (this might involve iterating on prompt phrasing or adjusting model parameters). - Ensure UI handles loading states and error messages gracefully (simulate an LLM failure by perhaps providing an invalid API key and see if user gets a clear error).
+
+20. Performance Tuning (Basic) – Before deployment, do a sanity check on performance:
+
+How long does one turn generation take on average? If it’s, say, 10 seconds, the UI should perhaps indicate that (maybe a spinner on Next Turn).
+
+Are there any glaring inefficiencies? (e.g., loading all characters every time scene builder opens – maybe cache list).
+
+For now, on free infra, we accept some slowness, but note places for improvement (to address in scalability phase).
+
+
+
+
+Phase 7: Deployment and DevOps
+21. Prepare Deployment Artifacts – Write Dockerfiles (if not done) for frontend and backend if needed. Or ensure that Vercel config (for frontend) and Fly/Render config (for backend) are ready. - For FastAPI, possibly set up Gunicorn with UVicorn workers for production (to handle multiple requests). - Collect any static files if needed (though mainly a SPA likely, so not much static beyond the built JS/CSS). - Use environment variables for production settings (API keys, etc.) – double check none of these are hard-coded.
+
+22. Deployment (Initial Launch) – Deploy according to the guide in Deliverable 6:
+
+Push frontend to Vercel and backend to Fly/Render (as described in infra steps).
+
+Set environment variables on each platform (Supabase connection, API URLs, etc.).
+
+After deployment, run a quick smoke test on production URLs: create a character, run a short scene, etc., to ensure no config issue.
+
+
+
+23. Deployment Checklist Verification – Go through a “Deployment Checklist” (from proposal or internal):
+
+Verify all services are up (ping health endpoints).
+
+All environment vars are set correctly (e.g., production uses the real OpenAI key, not a placeholder).
+
+Ensure database is seeded if needed (maybe ensure at least one admin user exists if auth needed).
+
+Security check: default passwords changed, no open endpoints without auth that should be protected.
+
+Monitoring in place (set up any error alert emails, etc., so we know if something fails after launch).
+
+
+
+24. Documentation & Handoff – Compile documentation for users and future developers:
+
+Write a README or user manual on how to use the Scene Builder and Admin Panel.
+
+Document the prompt designs and how to tweak them if needed.
+
+Technical docs: API docs (maybe rely on FastAPI docs), and architecture overview for new devs, pointing to the diagrams and rationale (which essentially is this document).
+
+This step ensures maintainability.
+
+
+
+
+Phase 8: Post-Launch and Scalability Preparations
+25. Collect Feedback & Observations – Once the system is live (even in a limited beta), gather performance data and user feedback: - Are scenes coherent? Do prompts need refining? - Are any LLM calls failing or timing out frequently? - What’s the average throughput? This data will inform scaling needs.
+
+26. Plan Scalability Enhancements – Based on the above and Deliverable 7 plans:
+
+Choose which scalability item is most urgent. For example, if vector search is slow, prioritize vector DB migration; if LLM cost is too high, prioritize model optimization.
+
+Create issues or tasks for each migration (microservices, vector DB, etc.) with designs referencing this document’s guidelines (e.g., “Refactor to actor microservices – see Section 7a for approach”).
+
+Possibly schedule a Phase 9 for implementing those (beyond initial deployment).
+
+
+
+27. Iterative Improvements – The project doesn’t end at launch. Future cycles will implement the Scalability Strategy:
+
+E.g., v1.1: switch to Pinecone for memory (requires data migration script and testing memory relevance).
+
+v1.2: deploy character microservices (perhaps using a cloud function per character call as a simpler intermediate step).
+
+v1.3: introduce Scene Analyzer and Closure Judge LLM calls for auto scene termination (completing the five-part chain).
+
+And so on, each version making the system more robust and autonomous.
+
+
+
+28. Final Goal: Achieve an autonomous, scalable narrative engine as envisioned. This includes full autonomous performance (no human in the loop needed during scene generation) and the ability to support many concurrent scenes/characters with reliability. By following the roadmap and evolving the system through these phases, we ensure that the development is structured, the deliverables of each stage are met, and we lay the groundwork for the ambitious features to come.
+
+
+
+Each step above corresponds to artifacts and specifications we’ve defined (schemas, prompt templates, etc.), ensuring that at every stage we have clear guidance (from this document) on how to proceed. By moving methodically from foundation to polish, we minimize rework and align the development with the design principles established in the Method I Narrative Engine proposal.
