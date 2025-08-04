@@ -27,6 +27,14 @@ def test_run_scene_respects_max_turns():
     state, reason = pipeline.run_scene(max_turns=3)
     assert reason == "max_turns"
     assert state.turn == 3
+    assert state.terminated is True
+    assert state.termination_reason == "max_turns"
+    assert state.history[-2]["event"] == "final_turn"
+    assert state.history[-2]["turn"] == 3
+    assert "timestamp" in state.history[-2]
+    assert state.history[-1]["event"] == "termination"
+    assert state.history[-1]["reason"] == "max_turns"
+    assert "timestamp" in state.history[-1]
 
 
 def test_run_scene_times_out():
@@ -34,3 +42,11 @@ def test_run_scene_times_out():
     state, reason = pipeline.run_scene(max_duration=0)
     assert reason == "timeout"
     assert state.turn == 0
+    assert state.terminated is True
+    assert state.termination_reason == "timeout"
+    assert state.history[-2]["event"] == "final_turn"
+    assert state.history[-2]["turn"] == 0
+    assert "timestamp" in state.history[-2]
+    assert state.history[-1]["event"] == "termination"
+    assert state.history[-1]["reason"] == "timeout"
+    assert "timestamp" in state.history[-1]
