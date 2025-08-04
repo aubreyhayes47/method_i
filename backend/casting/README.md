@@ -28,3 +28,8 @@ Default options live in `config/casting.yaml`:
 The unique candidates produced by this pipeline become initial entries in the
 `LivingDossier`. Those dossiers then supply context for the `ScenePipeline`,
 ensuring dialogue reflects each character's established background.
+
+## API
+
+An in-memory log tracks candidate reviews and backs a FastAPI route.
+`GET /casting-call/candidates` returns all logged entries as JSON.

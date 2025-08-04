@@ -27,7 +27,9 @@ Derived from Section 8 of `method_i_doc.txt`, this roadmap outlines the sequenti
    - Build a service or endpoint that ingests text and uses the casting director prompt to return candidate characters.
    - Parse JSON responses from the prompt.
 7. **Implement Review & Selection Logic**
-   - Allow marking which extracted characters to keep, storing selections in memory or a database.
+   - Allow marking which extracted characters to keep, storing selections in
+     memory or a database.
+   - ✅ Provide `GET /casting-call/candidates` to list logged candidates.
 8. **Implement Dossier Compilation**
    - For selected candidates, call the dossier compiler prompt and validate returned JSON against the schema.
    - Persist compiled characters to the Characters database.

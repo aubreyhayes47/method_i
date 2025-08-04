@@ -4,11 +4,18 @@ This repository hosts design documents for the Method I Narrative Engine. See [R
 
 ## Project Status
 
-Phase 1 delivered the foundational character schemas and the **Living Dossier** system for tracking evolving memories. Phase 2 Task 3 adds the `ScenePipeline`, which consumes dossier data to generate each new scene turn.
+Phase 1 delivered the foundational character schemas and the **Living Dossier**
+system for tracking evolving memories. Phase 2 Task 3 adds the
+`ScenePipeline`, which consumes dossier data to generate each new scene turn.
+Recent work in the casting module introduced a basic API for reviewing
+extracted character candidates.
 
-- [backend/dossier](backend/dossier/README.md) – how living dossiers feed scene generation.
-- [backend/scene](backend/scene/README.md) – pipeline stages for producing dialogue and action.
-- [backend/casting](backend/casting/README.md) – extracts characters from source texts.
+- [backend/dossier](backend/dossier/README.md) – how living dossiers feed scene
+  generation.
+- [backend/scene](backend/scene/README.md) – pipeline stages for producing
+  dialogue and action.
+- [backend/casting](backend/casting/README.md) – extracts characters from source
+  texts and exposes candidate logs via an API.
 
 ## LLM Configuration
 
@@ -78,8 +85,10 @@ chunk_strategy: chapter
 max_chars_per_chunk: 8000
 ```
 
-Its output seeds the `LivingDossier`, which then supplies the
-`ScenePipeline` with character context.
+An in-memory `CastingCallLogStore` captures each extracted candidate. A FastAPI
+route, `GET /casting-call/candidates`, returns these log entries for review.
+Its output seeds the `LivingDossier`, which then supplies the `ScenePipeline`
+with character context.
 
 ## Scene Configuration
 
@@ -102,10 +111,15 @@ manual stop is requested. Defaults originate from `config/scene.yaml` and may
 be overridden with `SCENE_MAX_TURNS`, `SCENE_MAX_DURATION_SECONDS`, or
 equivalent ``run_scene`` arguments.
 
-## Development Progress (Tasks 2–4)
-- **Task 2:** Established the core scene generation loop that retrieves context and constructs prompts.
-- **Task 3:** Wired the loop to an LLM backend and validated parsing of model responses.
-- **Task 4:** Added configuration flags and basic error handling to guard against malformed LLM output.
+## Development Progress
+- **Task 2:** Established the core scene generation loop that retrieves
+  context and constructs prompts.
+- **Task 3:** Wired the loop to an LLM backend and validated parsing of model
+  responses.
+- **Task 4:** Added configuration flags and basic error handling to guard
+  against malformed LLM output.
+- **Phase 3:** Introduced `GET /casting-call/candidates` for reviewing logged
+  character candidates.
 
 ## Environment Variables
 The pipeline expects the following variables at runtime:
