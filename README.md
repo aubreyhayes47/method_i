@@ -79,6 +79,13 @@ max_duration_seconds: 30
 supplying ``max_turns`` or ``max_duration_seconds`` when calling
 ``run_scene``.
 
+### Stop Conditions
+
+Scenes conclude when the turn limit or duration limit is reached, or when a
+manual stop is requested. Defaults originate from `config/scene.yaml` and may
+be overridden with `SCENE_MAX_TURNS`, `SCENE_MAX_DURATION_SECONDS`, or
+equivalent ``run_scene`` arguments.
+
 ## Development Progress (Tasks 2–4)
 - **Task 2:** Established the core scene generation loop that retrieves context and constructs prompts.
 - **Task 3:** Wired the loop to an LLM backend and validated parsing of model responses.

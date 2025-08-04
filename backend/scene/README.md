@@ -34,6 +34,17 @@ arguments to ``run_scene``:
   ends.
 - `SCENE_MAX_DURATION_SECONDS` sets a timeout for the entire scene.
 
+## Scene Conclusion
+
+`ScenePipeline` stops generating turns when any of the following occur:
+
+- The turn limit defined by `SCENE_MAX_TURNS` is reached.
+- Total run time exceeds `SCENE_MAX_DURATION_SECONDS`.
+- An external controller issues a manual stop.
+
+The `run_scene` helper reports which condition ended the scene so callers can
+log or react to it.
+
 ## Error Handling
 - Timeouts or transport errors trigger a retry with exponential backoff.
 - Malformed JSON from the LLM is logged and ignored for that turn, preserving the previous scene state.
