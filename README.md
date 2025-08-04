@@ -11,21 +11,31 @@ Phase 1 delivered the foundational character schemas and the **Living Dossier** 
 
 ## LLM Configuration
 
-Default parameters for LLM calls live in `config/llm.yaml`. The `LLMClient`
-class reads this file to determine the model, temperature, and token
-limits. These defaults can be overridden at runtime by passing explicit
-values to `LLMClient.generate()`.
+Default parameters for LLM calls live in `config/llm.yaml`. The file defines
+the provider, model, sampling temperature, and request timeout. Each provider
+also includes an `api_key` and `base_url` entry.
+
+`LLMClient.from_config` loads this file and can be overridden via environment
+variables or method arguments.
 
 ### Environment variables
 
-The client expects the following variables to be present:
+The client recognises the following variables:
 
-| Variable         | Purpose                                             |
-| ---------------- | --------------------------------------------------- |
-| `OPENAI_API_KEY` | API key used when invoking the OpenAI SDK.          |
-| `LLM_MODEL`      | *(optional)* Overrides the model defined in the config file. |
+| Variable           | Default                     | Description                     |
+| ------------------ | --------------------------- | ------------------------------- |
+| `LLM_PROVIDER`     | `openai`                    | Name of the LLM provider.       |
+| `LLM_MODEL`        | value from config           | Model used for generation.      |
+| `LLM_TEMPERATURE`  | value from config (`0.7`)   | Sampling temperature.           |
+| `LLM_TIMEOUT`      | value from config (`30`)    | Request timeout in seconds.     |
+| `OPENAI_API_KEY`   | `null`                      | API key for the OpenAI provider.|
+| `OPENAI_BASE_URL`  | `https://api.openai.com/v1` | Endpoint for the OpenAI API.    |
 
-Set these variables in your environment before running code that calls the LLM.
+Provider-specific variables use the pattern `<PROVIDER>_API_KEY` and
+`<PROVIDER>_BASE_URL`.
+
+Set these variables in your environment before running code that calls the
+LLM.
 
 ## Development Progress (Tasks 2–4)
 - **Task 2:** Established the core scene generation loop that retrieves context and constructs prompts.
@@ -34,7 +44,11 @@ Set these variables in your environment before running code that calls the LLM.
 
 ## Environment Variables
 The pipeline expects the following variables at runtime:
+
 - `OPENAI_API_KEY` – API key for accessing the LLM provider.
+- `LLM_PROVIDER` – Name of the LLM provider (default `openai`).
 - `LLM_MODEL` – Model name used for inner monologue and dialogue.
+- `LLM_TEMPERATURE` – Sampling temperature for generation.
+- `LLM_TIMEOUT` – Request timeout in seconds.
 - `SCENE_MAX_TURNS` – Upper bound for automatic scene termination.
 - `DB_URL` – Location of the backing store for dossiers and scenes.
