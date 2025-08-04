@@ -14,8 +14,14 @@ class SceneState:
         Ordered list capturing the dialogue and actions that have occurred.
     turn:
         Integer counter tracking the current turn number.
+    terminated:
+        Boolean flag indicating whether the scene has concluded.
+    termination_reason:
+        String describing why the scene ended.
     """
 
     characters: List[str] = field(default_factory=list)
     history: List[Dict[str, Any]] = field(default_factory=list)
     turn: int = 0
+    terminated: bool = False
+    termination_reason: str = ""

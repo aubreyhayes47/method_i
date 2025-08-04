@@ -104,6 +104,23 @@ class ScenePipeline:
 
             self.state.turn += 1
             turn_count += 1
+        final_turn_time = time.time()
+        self.state.history.append(
+            {
+                "event": "final_turn",
+                "turn": self.state.turn,
+                "timestamp": final_turn_time,
+            }
+        )
+        self.state.terminated = True
+        self.state.termination_reason = termination_reason
+        self.state.history.append(
+            {
+                "event": "termination",
+                "reason": termination_reason,
+                "timestamp": time.time(),
+            }
+        )
 
         return self.state, termination_reason
 
