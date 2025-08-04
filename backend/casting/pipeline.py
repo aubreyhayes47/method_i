@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import List, Optional
 import re
 from difflib import SequenceMatcher
+import json
+import jsonschema
 
 from .models import CharacterCandidate, CastingCallLogStore
 from .prompts import CASTING_DIRECTOR_PROMPT
@@ -148,3 +150,44 @@ class CharacterExtractionPipeline:
                 cand.minor_role = True
 
         return candidates
+
+
+@dataclass
+class DossierCompiler:
+    """Compile a character dossier and validate it against a JSON schema."""
+
+    llm_client: LLMClient
+    schema: dict
+    max_retries: int = 0
+
+    def compile(self, prompt: str) -> dict:
+        """Generate a dossier from ``prompt`` and validate the result.
+
+        The ``llm_client`` is invoked until the returned JSON validates against
+        ``schema`` or the allowed retries are exhausted. A ``ValueError`` with a
+        descriptive message is raised on repeated validation failures.
+        """
+
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            response = self.llm_client.generate(prompt)
+            # The LLM may return a JSON string or a parsed dictionary.
+            if isinstance(response, str):
+                try:
+                    data = json.loads(response)
+                except json.JSONDecodeError as exc:  # invalid JSON string
+                    last_error = exc
+                    continue
+            else:
+                data = response
+
+            try:
+                jsonschema.validate(instance=data, schema=self.schema)
+                return data
+            except jsonschema.ValidationError as exc:
+                last_error = exc
+                continue
+
+        if last_error is None:
+            raise ValueError("Failed to generate dossier data")
+        raise ValueError(f"Dossier JSON validation failed: {last_error}") from last_error
