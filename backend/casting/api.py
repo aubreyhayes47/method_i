@@ -48,3 +48,21 @@ def select_casting_call_candidates(payload: SelectionPayload) -> list[dict]:
             log.selected = False
     return selected_summaries
 
+
+class CompilePayload(BaseModel):
+    """Payload specifying candidate IDs to compile."""
+
+    candidate_ids: list[int]
+
+
+@router.post("/casting-call/compile")
+def compile_casting_call_candidates(payload: CompilePayload) -> list[dict]:
+    """Return summaries for selected candidates slated for compilation."""
+
+    logs = casting_call_log.all()
+    compiled: list[dict] = []
+    for idx in payload.candidate_ids:
+        if 0 <= idx < len(logs) and logs[idx].selected:
+            compiled.append(asdict(logs[idx].candidate))
+    return compiled
+
