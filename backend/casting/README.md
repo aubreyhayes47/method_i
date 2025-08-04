@@ -31,5 +31,7 @@ ensuring dialogue reflects each character's established background.
 
 ## API
 
-An in-memory log tracks candidate reviews and backs a FastAPI route.
-`GET /casting-call/candidates` returns all logged entries as JSON.
+An in-memory log tracks candidate reviews and backs two FastAPI routes.
+`GET /casting-call/candidates` returns all logged entries as JSON. Use
+`POST /casting-call/select` with a JSON body of `{"selected_ids": [...]}` to
+mark candidates as selected and receive their updated summaries.
