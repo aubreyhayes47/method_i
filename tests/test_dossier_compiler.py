@@ -6,6 +6,7 @@ import pytest
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from backend.casting.pipeline import DossierCompiler
+from backend.casting.models import CharacterCandidate
 
 
 class FlakyLLMClient:
@@ -43,7 +44,8 @@ SCHEMA = {
 def test_compile_retries_until_valid():
     client = FlakyLLMClient()
     compiler = DossierCompiler(llm_client=client, schema=SCHEMA, max_retries=1)
-    result = compiler.compile("prompt")
+    candidate = CharacterCandidate(name="Alice")
+    result = compiler.compile(candidate)
     assert result == {"name": "Alice"}
     assert client.calls == 2
 
@@ -51,6 +53,7 @@ def test_compile_retries_until_valid():
 def test_compile_raises_after_retries():
     client = BadLLMClient()
     compiler = DossierCompiler(llm_client=client, schema=SCHEMA, max_retries=1)
+    candidate = CharacterCandidate(name="Alice")
     with pytest.raises(ValueError):
-        compiler.compile("prompt")
+        compiler.compile(candidate)
     assert client.calls == 2
