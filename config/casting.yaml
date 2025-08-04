@@ -1,0 +1,3 @@
+data_source: gutenberg
+chunk_strategy: chapter
+max_chars_per_chunk: 8000

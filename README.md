@@ -8,6 +8,7 @@ Phase 1 delivered the foundational character schemas and the **Living Dossier** 
 
 - [backend/dossier](backend/dossier/README.md) – how living dossiers feed scene generation.
 - [backend/scene](backend/scene/README.md) – pipeline stages for producing dialogue and action.
+- [backend/casting](backend/casting/README.md) – extracts characters from source texts.
 
 ## LLM Configuration
 
@@ -64,6 +65,21 @@ export OLLAMA_BASE_URL=http://localhost:11434
 - `Connection refused` – ensure the Ollama server is running at
   `OLLAMA_BASE_URL`.
 - `404` or `model not found` – pull the model or verify its name.
+
+## Casting Pipeline
+
+The casting-call pipeline extracts character candidates from source texts
+before any scenes are generated. Default settings live in
+`config/casting.yaml`:
+
+```yaml
+data_source: gutenberg
+chunk_strategy: chapter
+max_chars_per_chunk: 8000
+```
+
+Its output seeds the `LivingDossier`, which then supplies the
+`ScenePipeline` with character context.
 
 ## Scene Configuration
 
