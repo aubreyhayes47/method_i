@@ -1,17 +1,33 @@
 """API endpoints for the casting module."""
 
 from dataclasses import asdict
+from typing import Callable
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from .models import CastingCallLogStore
+from .pipeline import DossierCompiler
+from ..llm import LLMClient
+from ..dossier.models import CharacterStore
 
 
 router = APIRouter()
 
-# In-memory store for casting call records
+# In-memory stores
 casting_call_log = CastingCallLogStore()
+character_store = CharacterStore()
+
+
+def _default_compiler() -> DossierCompiler:
+    """Create a ``DossierCompiler`` with a fresh ``LLMClient``."""
+
+    return DossierCompiler(llm_client=LLMClient())
+
+
+# Factory used to obtain a ``DossierCompiler`` instance. Tests may monkeypatch
+# this to supply a dummy compiler that avoids real LLM calls.
+compiler_factory: Callable[[], DossierCompiler] = _default_compiler
 
 
 @router.get("/casting-call/candidates")
@@ -57,12 +73,20 @@ class CompilePayload(BaseModel):
 
 @router.post("/casting-call/compile")
 def compile_casting_call_candidates(payload: CompilePayload) -> list[dict]:
-    """Return summaries for selected candidates slated for compilation."""
+    """Compile dossiers for selected candidates.
+
+    For each requested ``candidate_id`` that is marked as selected, run the
+    :class:`DossierCompiler`, persist the resulting dossier to
+    ``character_store`` and return the compiled summaries.
+    """
 
     logs = casting_call_log.all()
+    compiler = compiler_factory()
     compiled: list[dict] = []
     for idx in payload.candidate_ids:
         if 0 <= idx < len(logs) and logs[idx].selected:
-            compiled.append(asdict(logs[idx].candidate))
+            dossier = compiler.compile(logs[idx].candidate)
+            character_store.insert(dossier)
+            compiled.append(dossier)
     return compiled
 
