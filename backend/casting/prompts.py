@@ -6,3 +6,212 @@ CASTING_DIRECTOR_PROMPT = (
     "'characters' list. Each entry must be an object with a 'name' field. "
     "Return only valid JSON.\n\nText:\n"
 )
+
+DOSSIER_COMPILER_PROMPT = """You are a compiler producing a character dossier in
+JSON format. Adhere strictly to the following JSON schema and return only
+valid JSON.\n\n
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Character Dossier (Expanded - Method I Acting)",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "role": { "type": "string" },
+    "source_material": { "type": "string" },
+    "blueprint": {
+      "type": "object",
+      "description": "Phase I - Textual analysis using Stanislavski's approach",
+      "properties": {
+        "verifiable_facts": {
+          "type": "array",
+          "description": "Objective facts drawn from the text",
+          "items": { "type": "string" }
+        },
+        "contradiction_log": {
+          "type": "array",
+          "description": "Conflicting statements and actions",
+          "items": {
+            "type": "object",
+            "properties": {
+              "claim": { "type": "string" },
+              "conflicts_with": { "type": "string" }
+            },
+            "required": ["claim", "conflicts_with"]
+          }
+        },
+        "linguistic_profile": {
+          "type": "object",
+          "properties": {
+            "vocabulary_syntax": { "type": "string" },
+            "rhythm_imagery": { "type": "string" }
+          },
+          "required": ["vocabulary_syntax", "rhythm_imagery"]
+        },
+        "objective_action_analysis": {
+          "type": "object",
+          "properties": {
+            "super_objective": { "type": "string" },
+            "tactics": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["super_objective"]
+        },
+        "relationship_mapping": {
+          "type": "array",
+          "description": "Sociogram with emotional currency",
+          "items": {
+            "type": "object",
+            "properties": {
+              "character": { "type": "string" },
+              "emotional_currency": { "type": "string" }
+            },
+            "required": ["character", "emotional_currency"]
+          }
+        }
+      },
+      "required": [
+        "verifiable_facts",
+        "linguistic_profile",
+        "objective_action_analysis",
+        "relationship_mapping"
+      ]
+    },
+    "inner_world": {
+      "type": "object",
+      "description": "Phase I - Psychological and imaginative work",
+      "properties": {
+        "backstory": {
+          "type": "string",
+          "description": "Emotional turning points shaping the character"
+        },
+        "memory_journal": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event": { "type": "string" },
+              "emotion": { "type": "string" },
+              "sensory_anchor": { "type": "string" },
+              "influence_on_present": { "type": "string" }
+            },
+            "required": ["event", "emotion", "sensory_anchor", "influence_on_present"]
+          }
+        },
+        "core_motivation": { "type": "string" },
+        "primal_fear": { "type": "string" },
+        "primary_defense_mechanism": { "type": "string" },
+        "central_paradox": { "type": "string" },
+        "magic_if": {
+          "type": "string",
+          "description": "Stanislavski's refined Magic If"
+        }
+      },
+      "required": [
+        "core_motivation",
+        "primal_fear",
+        "primary_defense_mechanism",
+        "central_paradox",
+        "magic_if"
+      ]
+    },
+    "physical_form": {
+      "type": "object",
+      "description": "Phase I - External embodiment using animal work and Chekhov technique",
+      "properties": {
+        "animal_work": {
+          "type": "object",
+          "properties": {
+            "animal": { "type": "string" },
+            "effort_rhythm": { "type": "string" },
+            "translated_human_quality": { "type": "string" }
+          },
+          "required": ["animal", "effort_rhythm", "translated_human_quality"]
+        },
+        "chekhov_technique": {
+          "type": "object",
+          "properties": {
+            "energetic_center": { "type": "string" },
+            "imaginary_body": {
+              "type": "object",
+              "properties": {
+                "posture": { "type": "string" },
+                "weight_distribution": { "type": "string" },
+                "tension_patterns": { "type": "string" }
+              },
+              "required": ["posture", "weight_distribution", "tension_patterns"]
+            }
+          },
+          "required": ["energetic_center", "imaginary_body"]
+        }
+      },
+      "required": ["animal_work", "chekhov_technique"]
+    },
+    "method_work": {
+      "type": "object",
+      "description": "References to acting techniques used",
+      "properties": {
+        "stanislavski": {
+          "type": "object",
+          "properties": {
+            "given_circumstances": { "type": "string" },
+            "magic_if": { "type": "string" },
+            "through_line_of_action": { "type": "string" }
+          },
+          "required": ["given_circumstances", "magic_if", "through_line_of_action"]
+        },
+        "uta_hagen": {
+          "type": "object",
+          "properties": {
+            "nine_questions": {
+              "type": "object",
+              "properties": {
+                "who_am_i": { "type": "string" },
+                "what_do_i_want": { "type": "string" },
+                "why_do_i_want_it": { "type": "string" },
+                "where_am_i": { "type": "string" },
+                "when_is_it": { "type": "string" },
+                "what_must_i_overcome": { "type": "string" },
+                "how_do_i_get_it": { "type": "string" },
+                "what_is_at_stake": { "type": "string" },
+                "what_am_i_doing": { "type": "string" }
+              },
+              "required": ["who_am_i", "what_do_i_want", "why_do_i_want_it"]
+            }
+          },
+          "required": ["nine_questions"]
+        },
+        "chekhov": {
+          "type": "object",
+          "properties": {
+            "psychological_gesture": { "type": "string" },
+            "imaginary_body": { "type": "string" }
+          },
+          "required": ["psychological_gesture", "imaginary_body"]
+        },
+        "practical_aesthetics": {
+          "type": "object",
+          "properties": {
+            "literal": { "type": "string" },
+            "want": { "type": "string" },
+            "essential_action": { "type": "string" },
+            "as_if": { "type": "string" }
+          },
+          "required": ["literal", "want", "essential_action", "as_if"]
+        }
+      },
+      "required": ["stanislavski", "uta_hagen", "chekhov", "practical_aesthetics"]
+    }
+  },
+  "required": [
+    "name",
+    "role",
+    "source_material",
+    "blueprint",
+    "inner_world",
+    "physical_form",
+    "method_work"
+  ]
+}
+"""
