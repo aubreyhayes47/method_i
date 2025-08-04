@@ -16,8 +16,22 @@ def test_extract_characters_parses_candidates():
     pipeline = CharacterExtractionPipeline(llm_client=DummyLLMClient())
     candidates = pipeline.extract_characters(["chunk one", "chunk two"])
     assert candidates == [
-        CharacterCandidate(name="Alice"),
-        CharacterCandidate(name="Bob"),
-        CharacterCandidate(name="Alice"),
-        CharacterCandidate(name="Bob"),
+        CharacterCandidate(name="Alice", source_chunks=[0]),
+        CharacterCandidate(name="Bob", source_chunks=[0]),
+        CharacterCandidate(name="Alice", source_chunks=[1]),
+        CharacterCandidate(name="Bob", source_chunks=[1]),
+    ]
+
+
+def test_deduplicate_candidates_merges_sources():
+    pipeline = CharacterExtractionPipeline(llm_client=DummyLLMClient())
+    raw = [
+        CharacterCandidate(name="Alice", source_chunks=[0]),
+        CharacterCandidate(name="alice", source_chunks=[1]),
+        CharacterCandidate(name="Bob", source_chunks=[0]),
+    ]
+    deduped = pipeline.deduplicate_candidates(raw)
+    assert deduped == [
+        CharacterCandidate(name="Alice", source_chunks=[0, 1]),
+        CharacterCandidate(name="Bob", source_chunks=[0]),
     ]
