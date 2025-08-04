@@ -23,3 +23,25 @@ def test_get_casting_call_candidates_returns_all_logs() -> None:
         {"candidate": {"name": "Tom", "source_chunks": []}, "selected": True},
     ]
 
+
+def test_select_casting_call_candidates_updates_selection() -> None:
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    casting_call_log._logs.clear()
+    casting_call_log.add(CharacterCandidate(name="Jane"))
+    casting_call_log.add(CharacterCandidate(name="Tom"))
+    casting_call_log.add(CharacterCandidate(name="Lucy"))
+
+    response = client.post(
+        "/casting-call/select", json={"selected_ids": [0, 2]}
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {"candidate": {"name": "Jane", "source_chunks": []}, "selected": True},
+        {"candidate": {"name": "Lucy", "source_chunks": []}, "selected": True},
+    ]
+
+    assert [log.selected for log in casting_call_log.all()] == [True, False, True]
+
