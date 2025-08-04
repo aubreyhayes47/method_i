@@ -38,12 +38,13 @@ class CharacterExtractionPipeline:
         chunks = self.chunk_text(text)
         candidates = self.extract_characters(chunks)
         deduped = self.deduplicate_candidates(candidates)
+        flagged = self.flag_duplicate_candidates(deduped)
 
         if self.store is not None:
-            for cand in deduped:
+            for cand in flagged:
                 self.store.add(cand)
 
-        return deduped
+        return flagged
 
     # The following methods are expected to be implemented by subclasses or
     # provided via mixins. They are declared here to document the expected
@@ -121,3 +122,29 @@ class CharacterExtractionPipeline:
                 existing.source_chunks = sorted(set(existing.source_chunks))
 
         return list(merged.values())
+
+    def flag_duplicate_candidates(
+        self, candidates: List[CharacterCandidate]
+    ) -> List[CharacterCandidate]:
+        """Mark candidates that are duplicates or likely minor roles.
+
+        Candidates sharing identical ``source_chunks`` sets are flagged as
+        duplicates. Candidates that appear in only a single chunk are flagged as
+        minor roles.
+        """
+
+        groups: dict[tuple[int, ...], List[CharacterCandidate]] = {}
+        for cand in candidates:
+            key = tuple(sorted(cand.source_chunks))
+            groups.setdefault(key, []).append(cand)
+
+        for group in groups.values():
+            if len(group) > 1:
+                for cand in group:
+                    cand.duplicate = True
+
+        for cand in candidates:
+            if len(cand.source_chunks) <= 1:
+                cand.minor_role = True
+
+        return candidates
