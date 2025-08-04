@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "In-Scene Grounding (Phase II - Method I Acting)",
+  "type": "object",
+  "properties": {
+    "pre_scene_checklist": {
+      "type": "object",
+      "description": "Uta Hagen's Five-Second Reality Check",
+      "properties": {
+        "where_am_i": { "type": "string" },
+        "what_time_is_it": { "type": "string" },
+        "what_surrounds_me": { "type": "string" },
+        "moment_before": { "type": "string" },
+        "immediate_objective": { "type": "string" },
+        "first_move": { "type": "string" }
+      },
+      "required": [
+        "where_am_i",
+        "moment_before",
+        "immediate_objective",
+        "first_move"
+      ]
+    },
+    "in_scene_activation": {
+      "type": "object",
+      "properties": {
+        "tactics": {
+          "type": "array",
+          "description": "Practical Aesthetics - play the action",
+          "items": { "type": "string" }
+        },
+        "sensory_engagement": {
+          "type": "object",
+          "description": "Stanislavski's sensory work",
+          "properties": {
+            "sight": { "type": "string" },
+            "sound": { "type": "string" },
+            "touch": { "type": "string" },
+            "smell": { "type": "string" },
+            "taste": { "type": "string" }
+          }
+        },
+        "partner_influence": {
+          "type": "string",
+          "description": "Meisner-inspired responsiveness"
+        }
+      },
+      "required": ["tactics", "partner_influence"]
+    }
+  },
+  "required": ["pre_scene_checklist", "in_scene_activation"]
+}
+
