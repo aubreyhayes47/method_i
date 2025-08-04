@@ -76,13 +76,122 @@ Derived from Section 8 of `method_i_doc.txt`, this roadmap outlines the sequenti
 24. **Documentation & Handoff**
     - Provide user and developer documentation, including prompt designs and architectural overviews.
 
-## Phase 8: Post-Launch and Scalability Preparations
-25. **Collect Feedback & Observations**
-    - Monitor performance and user feedback to assess scene coherence and system reliability.
-26. **Plan Scalability Enhancements**
-    - Prioritize tasks such as vector DB migration or microservice refactors based on observed bottlenecks.
-27. **Iterative Improvements**
-    - Schedule follow-up versions (e.g., Pinecone migration, character microservices, scene analyzers).
-28. **Final Goal**
-    - Achieve a scalable, autonomous narrative engine that supports many concurrent scenes with consistent dramatic quality.
+## Phase 8: Dossier Packaging and Identity Infrastructure
 
+**Goal**: Introduce a reproducible `.dossier` packaging format, IPFS-based identity system, and a remix-aware provenance structure—preserving transparency while enabling uniqueness and shareability.
+
+---
+
+### 25. Modular `.dossier` File Specification
+
+Define a new modular and extensible `.dossier` format that contains:
+
+- `core.json`  
+  > Canonical character dossier (name, role, arcs, backstory, dialogue style)
+
+- `indices/`  
+  - `psych_profile_index.json`  
+  - `linguistic_profile_index.json`  
+  > Stored separately to allow evolution or recomputation
+
+- `assets/`  
+  - Optional `avatar.png`  
+  - Optional `voice_config.json`  
+  > Future extensibility: `costume/`, `style_templates/`, `narrative_history/`
+
+- `meta.json`  
+  > Metadata block including:
+  ```json
+  {
+    "author": "username_or_hash",
+    "timestamp": "ISO string",
+    "source_text": "original source or extraction document",
+    "method_version": "v1.0",
+    "parent_cid": "optional",
+    "notes": "creator comment"
+  }
+  ```
+
+Use deterministic file ordering and hashing rules to ensure reproducible content.
+
+---
+
+### 26. IPFS Integration & Content Addressing
+
+- Automate `.dossier` compression + upload to IPFS via backend process.
+- Return **CID** to user on upload completion.
+- Store CID + metadata in internal DB for discoverability, if desired.
+- Allow optional download of `.dossier` file by CID (IPFS client integration or API gateway).
+
+---
+
+### 27. Remixing & Lineage Protocol
+
+- Define standard for remixing:
+  - `parent_cid` is mandatory on remixes
+  - Authors can include attribution via `author_signature` field
+  - No enforcement of originality or access control; trust is social, not cryptographic
+
+- Future option:  
+  - Integrate **graph-based lineage visualizer** to explore character family trees
+
+---
+
+### 28. CID Resolution and Upload UI
+
+- Build lightweight interface for:
+  - Uploading `.dossier` via drag-and-drop
+  - Resolving `.dossier` from CID and previewing
+  - Browsing local + shared characters by CID or name
+
+- Support future plugins for:
+  - Dossier diffing (between parent and child)
+  - Avatar auto-regeneration (e.g. via AI face generator)
+
+---
+
+### 29. Internal APIs for Packaging Flow
+
+- Backend service to:
+  - Validate character inputs and create `.dossier`
+  - Compress, hash, upload, and return CID
+  - Store CID + metadata (if opted in) for public browsing
+
+- Endpoint Examples:
+  - `POST /dossiers/pack`
+  - `POST /dossiers/upload`
+  - `GET /dossiers/:cid`
+  - `GET /dossiers/search?query=x`
+
+---
+
+## Phase 9: Feedback Loop & Live Evolution
+
+**Goal**: Transition into continuous learning and improvement through structured user feedback and real-world dossier performance monitoring.
+
+---
+
+### 30. Usage Analytics (Optional, Glass Box Compliant)
+
+Track:
+
+- Turn latency
+- Dossier usage frequency
+- Scene coherence failures (e.g. contradictions, stalling)
+- Remix activity (diff frequency, lineage depth)
+
+> All tracking must be opt-in and anonymized where applicable.
+
+---
+
+### 31. Narrative Quality Feedback
+
+Prompt an llm for qualitative feedback after scenes:
+
+- “Which character broke tone?”
+- “Was this scene emotionally satisfying?”
+- “Did the scene feel coherent?”
+
+This should use prompt engineering to pose the llm as a Roman Emperor who has very strong and well informed opinions on literature and dramaturgy. He will give an objective review and a thumb up or thumb down for each generated narrative.
+
+This will replace tradition rlhf by (1) automating anonymized data collection about narrative/character quality and (2) challenging users by presenting the emperor's verdict at the end of a story with a sort of sub conscious reminder to Judge Not Lest Ye Be Judged.
