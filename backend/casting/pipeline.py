@@ -6,10 +6,13 @@ from difflib import SequenceMatcher
 import json
 from pathlib import Path
 import jsonschema
+import logging
 
 from .models import CharacterCandidate, CastingCallLogStore
 from .prompts import CASTING_DIRECTOR_PROMPT, DOSSIER_COMPILER_PROMPT
 from ..llm import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -178,13 +181,29 @@ class DossierCompiler:
         schema = json.loads(schema_path.read_text())
 
         for attempt in range(retries + 1):
-            result = self.llm_client.generate(prompt)
+            try:
+                result = self.llm_client.generate(prompt)
+            except Exception as exc:
+                logger.exception("LLM generation failed for %s", candidate.name)
+                if attempt == retries:
+                    return {
+                        "name": candidate.name,
+                        "error": f"LLM generation failed: {exc}",
+                    }
+                continue
+
             try:
                 jsonschema.validate(instance=result, schema=schema)
                 return result
             except jsonschema.ValidationError as err:
+                logger.exception(
+                    "Schema validation failed for %s: %s",
+                    candidate.name,
+                    err.message,
+                )
                 if attempt == retries:
-                    raise ValueError(
-                        f"Dossier for {candidate.name} failed validation: {err.message}"
-                    ) from err
+                    return {
+                        "name": candidate.name,
+                        "error": f"Validation failed: {err.message}",
+                    }
 
