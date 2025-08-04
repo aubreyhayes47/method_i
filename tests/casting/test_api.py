@@ -145,3 +145,35 @@ def test_compile_generates_dossiers_for_selected_ids(
         {"name": "Lucy", "summary": "Lucy dossier"},
     ]
 
+
+def test_compile_handles_partial_failures(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Compilation returns errors for failed candidates while storing successes."""
+
+    add_candidates()
+    client.post("/casting-call/select", json={"selected_ids": [0, 1]})
+
+    class DummyCompiler:
+        def compile(self, candidate, retries: int = 1) -> dict:
+            if candidate.name == "Tom":
+                return {"name": "Tom", "error": "boom"}
+            return {"name": candidate.name, "summary": f"{candidate.name} dossier"}
+
+    monkeypatch.setattr(
+        "backend.casting.api.compiler_factory", lambda: DummyCompiler()
+    )
+
+    response = client.post(
+        "/casting-call/compile", json={"candidate_ids": [0, 1]}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "Jane", "summary": "Jane dossier"},
+        {"name": "Tom", "error": "boom"},
+    ]
+
+    stored = [char.dossier for char in character_store.all()]
+    assert stored == [{"name": "Jane", "summary": "Jane dossier"}]
+

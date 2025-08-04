@@ -85,8 +85,9 @@ def compile_casting_call_candidates(payload: CompilePayload) -> list[dict]:
     compiled: list[dict] = []
     for idx in payload.candidate_ids:
         if 0 <= idx < len(logs) and logs[idx].selected:
-            dossier = compiler.compile(logs[idx].candidate)
-            character_store.insert(dossier)
-            compiled.append(dossier)
+            result = compiler.compile(logs[idx].candidate)
+            if "error" not in result:
+                character_store.insert(result)
+            compiled.append(result)
     return compiled
 

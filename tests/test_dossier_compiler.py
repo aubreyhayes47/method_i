@@ -35,7 +35,7 @@ def test_compile_retries_and_returns_valid(monkeypatch):
     assert result == {"valid": True}
 
 
-def test_compile_raises_after_failures(monkeypatch):
+def test_compile_returns_error_after_failures(monkeypatch):
     compiler = DossierCompiler(llm_client=DummyLLM([
         {"invalid": True},
         {"invalid": True},
@@ -49,5 +49,17 @@ def test_compile_raises_after_failures(monkeypatch):
     )
 
     candidate = CharacterCandidate(name="Bob", source_chunks=[])
-    with pytest.raises(ValueError):
-        compiler.compile(candidate)
+    result = compiler.compile(candidate)
+    assert result["name"] == "Bob"
+    assert "invalid" in result["error"]
+
+
+def test_compile_returns_error_on_llm_failure():
+    class FailingLLM:
+        def generate(self, prompt: str):
+            raise RuntimeError("boom")
+
+    compiler = DossierCompiler(llm_client=FailingLLM())
+    result = compiler.compile(CharacterCandidate(name="Eve", source_chunks=[]))
+    assert result["name"] == "Eve"
+    assert "boom" in result["error"]
