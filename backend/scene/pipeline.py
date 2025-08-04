@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Tuple
+import time
 
 from .state import SceneState
 
@@ -60,6 +61,51 @@ class ScenePipeline:
         return self.llm_client.complete(
             prompt, model=model, temperature=temperature
         )
+
+    def run_scene(
+        self,
+        *,
+        max_turns: Optional[int] = None,
+        max_duration: Optional[float] = None,
+    ) -> Tuple[SceneState, str]:
+        """Run turns until reaching ``max_turns`` or ``max_duration``.
+
+        Parameters
+        ----------
+        max_turns:
+            Maximum number of turns to execute before stopping.
+        max_duration:
+            Maximum time in seconds to run before timing out.
+
+        Returns
+        -------
+        Tuple[SceneState, str]
+            Final state and a termination reason of either ``max_turns`` or
+            ``timeout``.
+        """
+
+        if max_turns is None and max_duration is None:
+            raise ValueError("max_turns or max_duration must be provided")
+
+        start_time = time.time()
+        turn_count = 0
+        termination_reason = ""
+
+        while True:
+            if max_turns is not None and turn_count >= max_turns:
+                termination_reason = "max_turns"
+                break
+            if (
+                max_duration is not None
+                and time.time() - start_time >= max_duration
+            ):
+                termination_reason = "timeout"
+                break
+
+            self.state.turn += 1
+            turn_count += 1
+
+        return self.state, termination_reason
 
     def generate_dialogue_and_actions(
         self,
