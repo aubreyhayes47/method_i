@@ -4,7 +4,11 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from backend.casting.pipeline import CharacterExtractionPipeline
-from backend.casting.models import CharacterCandidate
+from backend.casting.models import (
+    CharacterCandidate,
+    CastingCallLog,
+    CastingCallLogStore,
+)
 
 
 class DummyLLMClient:
@@ -34,4 +38,32 @@ def test_deduplicate_candidates_merges_sources():
     assert deduped == [
         CharacterCandidate(name="Alice", source_chunks=[0, 1]),
         CharacterCandidate(name="Bob", source_chunks=[0]),
+    ]
+
+
+def test_run_persists_candidates():
+    class DummyPipeline(CharacterExtractionPipeline):
+        def fetch_text(self, book_id, source):
+            return "chunk one\nchunk two"
+
+        def chunk_text(self, text):
+            return ["chunk one", "chunk two"]
+
+    store = CastingCallLogStore()
+    pipeline = DummyPipeline(llm_client=DummyLLMClient(), store=store)
+    result = pipeline.run(book_id="123")
+
+    assert result == [
+        CharacterCandidate(name="Alice", source_chunks=[0, 1]),
+        CharacterCandidate(name="Bob", source_chunks=[0, 1]),
+    ]
+    assert store.all() == [
+        CastingCallLog(
+            candidate=CharacterCandidate(name="Alice", source_chunks=[0, 1]),
+            selected=False,
+        ),
+        CastingCallLog(
+            candidate=CharacterCandidate(name="Bob", source_chunks=[0, 1]),
+            selected=False,
+        ),
     ]
