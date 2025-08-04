@@ -2,15 +2,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
+from .models import CharacterCandidate
+from .prompts import CASTING_DIRECTOR_PROMPT
+from ..llm import LLMClient
+
 
 @dataclass
-class CharacterCandidate:
-    """Simple representation of an extracted character candidate."""
-    name: str
-
-
 class CharacterExtractionPipeline:
     """Pipeline orchestrating character extraction from source texts."""
+
+    llm_client: LLMClient
 
     def run(
         self, book_id: str, source: str = "gutenberg"
@@ -50,9 +51,19 @@ class CharacterExtractionPipeline:
 
     def extract_characters(
         self, chunks: List[str]
-    ) -> List[CharacterCandidate]:  # pragma: no cover
+    ) -> List[CharacterCandidate]:
         """Extract character candidates from text chunks."""
-        raise NotImplementedError
+
+        candidates: List[CharacterCandidate] = []
+        for chunk in chunks:
+            prompt = f"{CASTING_DIRECTOR_PROMPT}\n{chunk}"
+            response = self.llm_client.generate(prompt)
+            for item in response.get("characters", []):
+                try:
+                    candidates.append(CharacterCandidate(**item))
+                except TypeError:
+                    continue
+        return candidates
 
     def deduplicate_candidates(
         self, candidates: List[CharacterCandidate]
