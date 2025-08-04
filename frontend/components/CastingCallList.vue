@@ -8,7 +8,9 @@
       <li
         v-for="(entry, idx) in candidates"
         :key="idx"
-        :class="{ warning: entry.candidate.duplicate || entry.candidate.minor_role }"
+        :class="{
+          warning: entry.candidate.duplicate || entry.candidate.minor_role,
+        }"
       >
         <label>
           <input type="checkbox" :value="idx" v-model="selected" />
@@ -22,6 +24,13 @@
         </label>
       </li>
     </ul>
+    <button
+      @click="compileDossiers"
+      :disabled="selected.length === 0 || loading"
+    >
+      {{ loading ? "Compiling..." : "Compile Dossiers" }}
+    </button>
+    <p v-if="message">{{ message }}</p>
   </div>
 </template>
 
@@ -33,6 +42,8 @@ export default {
       candidates: [],
       selected: [],
       selectAll: false,
+      loading: false,
+      message: "",
     };
   },
   created() {
@@ -44,6 +55,9 @@ export default {
         const response = await fetch("/casting-call/candidates");
         const data = await response.json();
         this.candidates = data;
+        this.selected = data
+          .map((entry, idx) => (entry.selected ? idx : null))
+          .filter((idx) => idx !== null);
       } catch (error) {
         console.error("Failed to load candidates", error);
       }
@@ -53,6 +67,26 @@ export default {
         this.selected = this.candidates.map((_, idx) => idx);
       } else {
         this.selected = [];
+      }
+    },
+    async compileDossiers() {
+      this.loading = true;
+      this.message = "";
+      try {
+        const response = await fetch("/casting-call/compile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selected_ids: this.selected }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to compile dossiers");
+        }
+        this.message = "Dossiers compiled successfully";
+      } catch (error) {
+        console.error("Failed to compile dossiers", error);
+        this.message = "Error compiling dossiers";
+      } finally {
+        this.loading = false;
       }
     },
   },
