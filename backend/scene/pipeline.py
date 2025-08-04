@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Tuple
+import os
 import time
+
+import yaml
 
 from .state import SceneState
 
@@ -18,6 +21,28 @@ class ScenePipeline:
 
     llm_client: LLMClient
     state: SceneState = field(default_factory=SceneState)
+    max_turns: Optional[int] = None
+    max_duration_seconds: Optional[float] = None
+    config_path: str = "config/scene.yaml"
+
+    def __post_init__(self) -> None:
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        self.max_turns = (
+            self.max_turns
+            if self.max_turns is not None
+            else int(os.getenv("SCENE_MAX_TURNS", cfg.get("max_turns", 1)))
+        )
+        self.max_duration_seconds = (
+            self.max_duration_seconds
+            if self.max_duration_seconds is not None
+            else float(
+                os.getenv(
+                    "SCENE_MAX_DURATION_SECONDS",
+                    cfg.get("max_duration_seconds", 0),
+                )
+            )
+        )
 
     def update_state(
         self,
@@ -66,16 +91,19 @@ class ScenePipeline:
         self,
         *,
         max_turns: Optional[int] = None,
-        max_duration: Optional[float] = None,
+        max_duration_seconds: Optional[float] = None,
     ) -> Tuple[SceneState, str]:
-        """Run turns until reaching ``max_turns`` or ``max_duration``.
+        """Run turns until reaching the supplied limits.
 
         Parameters
         ----------
         max_turns:
-            Maximum number of turns to execute before stopping.
-        max_duration:
-            Maximum time in seconds to run before timing out.
+            Maximum number of turns to execute before stopping. Defaults to the
+            value loaded from ``config/scene.yaml`` or ``SCENE_MAX_TURNS``.
+        max_duration_seconds:
+            Maximum time in seconds to run before timing out. Defaults to the
+            value loaded from ``config/scene.yaml`` or
+            ``SCENE_MAX_DURATION_SECONDS``.
 
         Returns
         -------
@@ -84,8 +112,17 @@ class ScenePipeline:
             ``timeout``.
         """
 
-        if max_turns is None and max_duration is None:
-            raise ValueError("max_turns or max_duration must be provided")
+        max_turns = max_turns if max_turns is not None else self.max_turns
+        max_duration_seconds = (
+            max_duration_seconds
+            if max_duration_seconds is not None
+            else self.max_duration_seconds
+        )
+
+        if max_turns is None and max_duration_seconds is None:
+            raise ValueError(
+                "max_turns or max_duration_seconds must be provided"
+            )
 
         start_time = time.time()
         turn_count = 0
@@ -96,8 +133,8 @@ class ScenePipeline:
                 termination_reason = "max_turns"
                 break
             if (
-                max_duration is not None
-                and time.time() - start_time >= max_duration
+                max_duration_seconds is not None
+                and time.time() - start_time >= max_duration_seconds
             ):
                 termination_reason = "timeout"
                 break

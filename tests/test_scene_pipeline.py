@@ -39,7 +39,7 @@ def test_run_scene_respects_max_turns():
 
 def test_run_scene_times_out():
     pipeline = ScenePipeline(llm_client=DummyClient())
-    state, reason = pipeline.run_scene(max_duration=0)
+    state, reason = pipeline.run_scene(max_duration_seconds=0)
     assert reason == "timeout"
     assert state.turn == 0
     assert state.terminated is True
@@ -50,3 +50,10 @@ def test_run_scene_times_out():
     assert state.history[-1]["event"] == "termination"
     assert state.history[-1]["reason"] == "timeout"
     assert "timestamp" in state.history[-1]
+
+
+def test_run_scene_uses_config_defaults():
+    pipeline = ScenePipeline(llm_client=DummyClient())
+    state, reason = pipeline.run_scene()
+    assert reason == "max_turns"
+    assert state.turn == pipeline.max_turns

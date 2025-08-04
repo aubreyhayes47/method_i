@@ -23,10 +23,16 @@ history.
 - Sends inner monologue and dialogue prompts to the LLM and applies the structured JSON replies to update scene state.
 
 ## Configuration
-Environment variables drive LLM behavior:
+Default scene limits live in `config/scene.yaml`. `ScenePipeline` reads this
+file at start-up. Override these values via environment variables or direct
+arguments to ``run_scene``:
+
 - `OPENAI_API_KEY` authorizes requests to the model provider.
-- `LLM_MODEL` selects the model used for both inner monologue and dialogue generation.
-- `SCENE_MAX_TURNS` caps the number of turns before the scene automatically ends.
+- `LLM_MODEL` selects the model used for both inner monologue and dialogue
+  generation.
+- `SCENE_MAX_TURNS` caps the number of turns before the scene automatically
+  ends.
+- `SCENE_MAX_DURATION_SECONDS` sets a timeout for the entire scene.
 
 ## Error Handling
 - Timeouts or transport errors trigger a retry with exponential backoff.

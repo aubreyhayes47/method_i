@@ -65,6 +65,20 @@ export OLLAMA_BASE_URL=http://localhost:11434
   `OLLAMA_BASE_URL`.
 - `404` or `model not found` – pull the model or verify its name.
 
+## Scene Configuration
+
+Default scene limits live in `config/scene.yaml`:
+
+```yaml
+max_turns: 5
+max_duration_seconds: 30
+```
+
+`ScenePipeline` loads these settings at start-up. Override them with the
+`SCENE_MAX_TURNS` and `SCENE_MAX_DURATION_SECONDS` environment variables or by
+supplying ``max_turns`` or ``max_duration_seconds`` when calling
+``run_scene``.
+
 ## Development Progress (Tasks 2–4)
 - **Task 2:** Established the core scene generation loop that retrieves context and constructs prompts.
 - **Task 3:** Wired the loop to an LLM backend and validated parsing of model responses.
@@ -80,4 +94,5 @@ The pipeline expects the following variables at runtime:
 - `LLM_TEMPERATURE` – Sampling temperature for generation.
 - `LLM_TIMEOUT` – Request timeout in seconds.
 - `SCENE_MAX_TURNS` – Upper bound for automatic scene termination.
+- `SCENE_MAX_DURATION_SECONDS` – Maximum time before the scene times out.
 - `DB_URL` – Location of the backing store for dossiers and scenes.
