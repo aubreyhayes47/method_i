@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Character Dossier (Expanded - Method I Acting)",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "role": { "type": "string" },
+    "source_material": { "type": "string" },
+    "blueprint": {
+      "type": "object",
+      "properties": {
+        "biographical_summary": { "type": "string" },
+        "core_contradictions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "linguistic_fingerprint": {
+          "type": "object",
+          "properties": {
+            "syntax": { "type": "string" },
+            "pacing": { "type": "string" },
+            "lexical_choices": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["syntax", "pacing", "lexical_choices"]
+        }
+      },
+      "required": ["biographical_summary", "core_contradictions", "linguistic_fingerprint"]
+    },
+    "inner_world": {
+      "type": "object",
+      "properties": {
+        "super_objective": { "type": "string" },
+        "primal_fear": { "type": "string" },
+        "central_paradox": { "type": "string" },
+        "memory_journal": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event": { "type": "string" },
+              "emotion": { "type": "string" },
+              "influence_on_present": { "type": "string" }
+            },
+            "required": ["event", "emotion", "influence_on_present"]
+          }
+        }
+      },
+      "required": ["super_objective", "primal_fear", "central_paradox"]
+    },
+    "physical_form": {
+      "type": "object",
+      "properties": {
+        "animal_work": { "type": "string" },
+        "energetic_center": { "type": "string" }
+      },
+      "required": ["animal_work", "energetic_center"]
+    },
+    "method_work": {
+      "type": "object",
+      "properties": {
+        "stanislavski": {
+          "type": "object",
+          "properties": {
+            "given_circumstances": { "type": "string" },
+            "magic_if": { "type": "string" },
+            "through_line_of_action": { "type": "string" }
+          },
+          "required": ["given_circumstances", "magic_if", "through_line_of_action"]
+        },
+        "uta_hagen": {
+          "type": "object",
+          "properties": {
+            "nine_questions": {
+              "type": "object",
+              "properties": {
+                "who_am_i": { "type": "string" },
+                "what_do_i_want": { "type": "string" },
+                "why_do_i_want_it": { "type": "string" },
+                "where_am_i": { "type": "string" },
+                "when_is_it": { "type": "string" },
+                "what_must_i_overcome": { "type": "string" },
+                "how_do_i_get_it": { "type": "string" },
+                "what_is_at_stake": { "type": "string" },
+                "what_am_i_doing": { "type": "string" }
+              },
+              "required": ["who_am_i", "what_do_i_want", "why_do_i_want_it"]
+            }
+          },
+          "required": ["nine_questions"]
+        },
+        "chekhov": {
+          "type": "object",
+          "properties": {
+            "psychological_gesture": { "type": "string" },
+            "imaginary_body": { "type": "string" }
+          },
+          "required": ["psychological_gesture", "imaginary_body"]
+        },
+        "practical_aesthetics": {
+          "type": "object",
+          "properties": {
+            "literal": { "type": "string" },
+            "want": { "type": "string" },
+            "essential_action": { "type": "string" },
+            "as_if": { "type": "string" }
+          },
+          "required": ["literal", "want", "essential_action", "as_if"]
+        }
+      },
+      "required": ["stanislavski", "uta_hagen", "chekhov", "practical_aesthetics"]
+    }
+  },
+  "required": ["name", "role", "source_material", "blueprint", "inner_world", "physical_form", "method_work"]
+}
