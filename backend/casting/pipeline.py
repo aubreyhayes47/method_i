@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from typing import List, Optional
 import re
 from difflib import SequenceMatcher
+import json
+from pathlib import Path
+import jsonschema
 
 from .models import CharacterCandidate, CastingCallLogStore
 from .prompts import CASTING_DIRECTOR_PROMPT, DOSSIER_COMPILER_PROMPT
@@ -156,8 +159,32 @@ class DossierCompiler:
 
     llm_client: LLMClient
 
-    def compile(self, candidate: CharacterCandidate) -> dict:
-        """Compile a dossier for ``candidate``."""
+    def compile(self, candidate: CharacterCandidate, retries: int = 1) -> dict:
+        """Compile a dossier for ``candidate``.
+
+        Parameters
+        ----------
+        candidate:
+            Candidate for whom to generate the dossier.
+        retries:
+            Number of times to retry generation if validation fails.
+            Defaults to ``1``.
+        """
 
         prompt = f"{DOSSIER_COMPILER_PROMPT}\nName: {candidate.name}"
-        return self.llm_client.generate(prompt)
+        schema_path = (
+            Path(__file__).resolve().parents[2] / "character_dossier_expanded_method_i.json"
+        )
+        schema = json.loads(schema_path.read_text())
+
+        for attempt in range(retries + 1):
+            result = self.llm_client.generate(prompt)
+            try:
+                jsonschema.validate(instance=result, schema=schema)
+                return result
+            except jsonschema.ValidationError as err:
+                if attempt == retries:
+                    raise ValueError(
+                        f"Dossier for {candidate.name} failed validation: {err.message}"
+                    ) from err
+
