@@ -38,8 +38,10 @@ class ScenePipeline:
 def main() -> None:
     state = SceneState()
     pipeline = ScenePipeline(state)
-
     for turn in range(3):
+        # The full `run_scene` helper returns a ``termination_reason`` such as
+        # "turn_limit", "timeout", or "manual_stop". This demo runs a fixed
+        # number of turns and skips that reporting.
         user_input = f"User line {turn + 1}"
         reply = pipeline.run_turn(user_input)
         print(f"Assistant: {reply}")
