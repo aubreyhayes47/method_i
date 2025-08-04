@@ -1,6 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
+import re
+from difflib import SequenceMatcher
 
 from .models import CharacterCandidate
 from .prompts import CASTING_DIRECTOR_PROMPT
@@ -55,18 +57,60 @@ class CharacterExtractionPipeline:
         """Extract character candidates from text chunks."""
 
         candidates: List[CharacterCandidate] = []
-        for chunk in chunks:
+        for idx, chunk in enumerate(chunks):
             prompt = f"{CASTING_DIRECTOR_PROMPT}\n{chunk}"
             response = self.llm_client.generate(prompt)
             for item in response.get("characters", []):
                 try:
-                    candidates.append(CharacterCandidate(**item))
+                    candidate = CharacterCandidate(**item)
+                    candidate.source_chunks.append(idx)
+                    candidates.append(candidate)
                 except TypeError:
                     continue
         return candidates
 
     def deduplicate_candidates(
         self, candidates: List[CharacterCandidate]
-    ) -> List[CharacterCandidate]:  # pragma: no cover
-        """Deduplicate similar character candidates."""
-        raise NotImplementedError
+    ) -> List[CharacterCandidate]:
+        """Deduplicate similar character candidates.
+
+        Parameters
+        ----------
+        candidates:
+            List of raw ``CharacterCandidate`` instances extracted from text
+            chunks. Each candidate should carry provenance information in its
+            ``source_chunks`` attribute.
+
+        Returns
+        -------
+        list[CharacterCandidate]
+            Consolidated list of candidates with merged ``source_chunks``.
+        """
+
+        def normalize(name: str) -> str:
+            """Lower-case and strip non-alphanumeric characters."""
+            return re.sub(r"[^a-z0-9]", "", name.lower())
+
+        merged: dict[str, CharacterCandidate] = {}
+        for cand in candidates:
+            norm = normalize(cand.name)
+
+            # Attempt fuzzy match against existing normalized keys.
+            match_key = None
+            for key in merged.keys():
+                ratio = SequenceMatcher(None, norm, key).ratio()
+                if ratio >= 0.85:
+                    match_key = key
+                    break
+
+            if match_key is None:
+                merged[norm] = CharacterCandidate(
+                    name=cand.name, source_chunks=list(cand.source_chunks)
+                )
+            else:
+                existing = merged[match_key]
+                existing.source_chunks.extend(cand.source_chunks)
+                # ensure unique provenance entries
+                existing.source_chunks = sorted(set(existing.source_chunks))
+
+        return list(merged.values())
