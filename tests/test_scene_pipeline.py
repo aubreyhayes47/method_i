@@ -34,3 +34,16 @@ def test_run_scene_times_out():
     state, reason = pipeline.run_scene(max_duration=0)
     assert reason == "timeout"
     assert state.turn == 0
+
+
+def test_run_scene_manual_stop():
+    pipeline = ScenePipeline(llm_client=DummyClient())
+
+    def stop_after_two(state):
+        return state.turn >= 2
+
+    state, reason = pipeline.run_scene(
+        max_turns=5, stop_callback=stop_after_two
+    )
+    assert reason == "manual_stop"
+    assert state.turn == 2

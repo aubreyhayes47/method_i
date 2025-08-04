@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 import time
 
 from .state import SceneState
@@ -67,6 +67,7 @@ class ScenePipeline:
         *,
         max_turns: Optional[int] = None,
         max_duration: Optional[float] = None,
+        stop_callback: Optional[Callable[[SceneState], bool]] = None,
     ) -> Tuple[SceneState, str]:
         """Run turns until reaching ``max_turns`` or ``max_duration``.
 
@@ -76,6 +77,9 @@ class ScenePipeline:
             Maximum number of turns to execute before stopping.
         max_duration:
             Maximum time in seconds to run before timing out.
+        stop_callback:
+            Callable evaluated after each turn. If it returns a truthy value,
+            the scene stops with reason ``manual_stop``.
 
         Returns
         -------
@@ -104,6 +108,10 @@ class ScenePipeline:
 
             self.state.turn += 1
             turn_count += 1
+
+            if stop_callback is not None and stop_callback(self.state):
+                termination_reason = "manual_stop"
+                break
 
         return self.state, termination_reason
 
