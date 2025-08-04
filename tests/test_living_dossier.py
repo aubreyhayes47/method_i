@@ -1,21 +1,21 @@
-import os, sys
+import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from living_dossier import LivingDossier
 
 
-def test_retrieve_memories_ranks_by_occurrence():
+def test_retrieve_memories_by_character_id():
     dossier = LivingDossier(
-        memories=[
-            "Loves pizza",
-            "Pizza is delicious and pizza is life",
-            "Enjoys pasta",
-        ]
+        memories={"char1": ["Loves pizza"], "char2": ["Enjoys pasta"]}
     )
-    results = dossier.retrieve_memories("pizza")
-    assert results[0][1] == "Pizza is delicious and pizza is life"
-    assert results[0][0] > results[1][0]
+    assert dossier.retrieve_memories("char1") == ["Loves pizza"]
+    assert dossier.retrieve_memories("unknown") == []
 
 
-def test_retrieve_linguistic_traits():
-    dossier = LivingDossier(linguistic_traits=["uses slang", "formal tone"])
-    assert dossier.retrieve_linguistic_traits("slang") == [(1, "uses slang")]
+def test_retrieve_linguistic_traits_by_character_id():
+    traits = {"char1": {"style": "formal"}}
+    dossier = LivingDossier(linguistic_traits=traits)
+    assert dossier.retrieve_linguistic_traits("char1") == {"style": "formal"}
+    assert dossier.retrieve_linguistic_traits("missing") == {}
