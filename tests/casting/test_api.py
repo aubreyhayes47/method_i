@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 # Ensure the repository root is on the import path.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from backend.casting.api import casting_call_log, router
+from backend.casting.api import casting_call_log, router, character_store
 from backend.casting.models import CharacterCandidate
 
 
@@ -24,10 +24,11 @@ def client() -> TestClient:
 
 
 @pytest.fixture(autouse=True)
-def clear_log() -> None:
-    """Clear the in-memory casting call log before each test."""
+def clear_state() -> None:
+    """Clear in-memory stores before each test."""
 
     casting_call_log._logs.clear()
+    character_store._characters.clear()
 
 
 def add_candidates() -> None:
@@ -109,11 +110,24 @@ def test_select_casting_call_candidates_updates_selection(
     assert [log.selected for log in casting_call_log.all()] == [True, False, True]
 
 
-def test_compile_only_processes_selected_ids(client: TestClient) -> None:
-    """Compilation processes only candidates marked as selected."""
+def test_compile_generates_dossiers_for_selected_ids(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Compilation generates dossiers and stores them."""
 
     add_candidates()
     client.post("/casting-call/select", json={"selected_ids": [0, 2]})
+
+    class DummyCompiler:
+        def compile(self, candidate, retries: int = 1) -> dict:
+            return {
+                "name": candidate.name,
+                "summary": f"{candidate.name} dossier",
+            }
+
+    monkeypatch.setattr(
+        "backend.casting.api.compiler_factory", lambda: DummyCompiler()
+    )
 
     response = client.post(
         "/casting-call/compile", json={"candidate_ids": [0, 1, 2]}
@@ -121,17 +135,13 @@ def test_compile_only_processes_selected_ids(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == [
-        {
-            "name": "Jane",
-            "source_chunks": [],
-            "duplicate": False,
-            "minor_role": False,
-        },
-        {
-            "name": "Lucy",
-            "source_chunks": [],
-            "duplicate": False,
-            "minor_role": False,
-        },
+        {"name": "Jane", "summary": "Jane dossier"},
+        {"name": "Lucy", "summary": "Lucy dossier"},
+    ]
+
+    stored = [char.dossier for char in character_store.all()]
+    assert stored == [
+        {"name": "Jane", "summary": "Jane dossier"},
+        {"name": "Lucy", "summary": "Lucy dossier"},
     ]
 
