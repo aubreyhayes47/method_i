@@ -1,5 +1,10 @@
 """Tests for casting API endpoints."""
 
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -19,8 +24,24 @@ def test_get_casting_call_candidates_returns_all_logs() -> None:
     response = client.get("/casting-call/candidates")
     assert response.status_code == 200
     assert response.json() == [
-        {"candidate": {"name": "Jane", "source_chunks": []}, "selected": False},
-        {"candidate": {"name": "Tom", "source_chunks": []}, "selected": True},
+        {
+            "candidate": {
+                "name": "Jane",
+                "source_chunks": [],
+                "duplicate": False,
+                "minor_role": False,
+            },
+            "selected": False,
+        },
+        {
+            "candidate": {
+                "name": "Tom",
+                "source_chunks": [],
+                "duplicate": False,
+                "minor_role": False,
+            },
+            "selected": True,
+        },
     ]
 
 
@@ -39,8 +60,24 @@ def test_select_casting_call_candidates_updates_selection() -> None:
     )
     assert response.status_code == 200
     assert response.json() == [
-        {"candidate": {"name": "Jane", "source_chunks": []}, "selected": True},
-        {"candidate": {"name": "Lucy", "source_chunks": []}, "selected": True},
+        {
+            "candidate": {
+                "name": "Jane",
+                "source_chunks": [],
+                "duplicate": False,
+                "minor_role": False,
+            },
+            "selected": True,
+        },
+        {
+            "candidate": {
+                "name": "Lucy",
+                "source_chunks": [],
+                "duplicate": False,
+                "minor_role": False,
+            },
+            "selected": True,
+        },
     ]
 
     assert [log.selected for log in casting_call_log.all()] == [True, False, True]

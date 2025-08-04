@@ -54,16 +54,45 @@ def test_run_persists_candidates():
     result = pipeline.run(book_id="123")
 
     assert result == [
-        CharacterCandidate(name="Alice", source_chunks=[0, 1]),
-        CharacterCandidate(name="Bob", source_chunks=[0, 1]),
+        CharacterCandidate(
+            name="Alice", source_chunks=[0, 1], duplicate=True, minor_role=False
+        ),
+        CharacterCandidate(
+            name="Bob", source_chunks=[0, 1], duplicate=True, minor_role=False
+        ),
     ]
     assert store.all() == [
         CastingCallLog(
-            candidate=CharacterCandidate(name="Alice", source_chunks=[0, 1]),
+            candidate=CharacterCandidate(
+                name="Alice", source_chunks=[0, 1], duplicate=True, minor_role=False
+            ),
             selected=False,
         ),
         CastingCallLog(
-            candidate=CharacterCandidate(name="Bob", source_chunks=[0, 1]),
+            candidate=CharacterCandidate(
+                name="Bob", source_chunks=[0, 1], duplicate=True, minor_role=False
+            ),
             selected=False,
+        ),
+    ]
+
+
+def test_flag_duplicate_candidates_marks_duplicates_and_minor_roles():
+    pipeline = CharacterExtractionPipeline(llm_client=DummyLLMClient())
+    candidates = [
+        CharacterCandidate(name="Alice", source_chunks=[0]),
+        CharacterCandidate(name="Bob", source_chunks=[0]),
+        CharacterCandidate(name="Charlie", source_chunks=[1, 2]),
+    ]
+    flagged = pipeline.flag_duplicate_candidates(candidates)
+    assert flagged == [
+        CharacterCandidate(
+            name="Alice", source_chunks=[0], duplicate=True, minor_role=True
+        ),
+        CharacterCandidate(
+            name="Bob", source_chunks=[0], duplicate=True, minor_role=True
+        ),
+        CharacterCandidate(
+            name="Charlie", source_chunks=[1, 2], duplicate=False, minor_role=False
         ),
     ]

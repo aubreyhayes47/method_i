@@ -5,14 +5,20 @@
       Select All
     </label>
     <ul>
-      <li v-for="candidate in candidates" :key="candidate.id">
+      <li
+        v-for="(entry, idx) in candidates"
+        :key="idx"
+        :class="{ warning: entry.candidate.duplicate || entry.candidate.minor_role }"
+      >
         <label>
-          <input
-            type="checkbox"
-            :value="candidate.id"
-            v-model="selected"
-          />
-          {{ candidate.name }}
+          <input type="checkbox" :value="idx" v-model="selected" />
+          {{ entry.candidate.name }}
+          <span
+            v-if="entry.candidate.duplicate || entry.candidate.minor_role"
+            class="warning-icon"
+            title="Potential duplicate or minor role"
+            >⚠️</span
+          >
         </label>
       </li>
     </ul>
@@ -44,7 +50,7 @@ export default {
     },
     toggleAll() {
       if (this.selectAll) {
-        this.selected = this.candidates.map((c) => c.id);
+        this.selected = this.candidates.map((_, idx) => idx);
       } else {
         this.selected = [];
       }
@@ -66,5 +72,14 @@ ul {
 
 li {
   margin: 0.5rem 0;
+}
+
+.warning-icon {
+  color: #e0a800;
+  margin-left: 0.25rem;
+}
+
+.warning {
+  color: #e0a800;
 }
 </style>

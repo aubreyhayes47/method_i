@@ -19,6 +19,8 @@ class CharacterCandidate:
 
     name: str
     source_chunks: List[int] = field(default_factory=list)
+    duplicate: bool = False
+    minor_role: bool = False
 
 
 @dataclass
