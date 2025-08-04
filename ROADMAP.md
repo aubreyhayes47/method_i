@@ -3,7 +3,7 @@
 Derived from Section 8 of `method_i_doc.txt`, this roadmap outlines the sequential phases for building the Method I Narrative Engine. Each phase references design decisions and prompts defined earlier in the document and guides implementation in manageable stages.
 
 ## Phase 1: Foundational Data Models and Schemas
-1. **Define Character and Scene Schemas**
+1. **Define Character and Scene Schemas** ✅
    - Create JSON or Pydantic models for Character Dossiers, Scene State Manager, Vector Indexes and In-Scene Grounding.
    - Validate example data against these schemas.
    - Set up database tables or JSON columns reflecting the schema structure.
