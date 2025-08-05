@@ -1,6 +1,88 @@
-# method_i
+# Method I: An Introduction to Character-Driven AI
 
-This repository hosts design documents for the Method I Narrative Engine. See [ROADMAP.md](ROADMAP.md) for the implementation plan derived from section 8 of the main design document.
+Method I is a revolutionary approach to artificial intelligence and
+storytelling that redefines the creative process. At its core, Method I
+is a computational dramaturgy engine that directs improvised dramatic
+scenes between highly structured, AI-powered Characters.
+
+Instead of simulating a generic human mind, Method I models the specific,
+time-tested processes professional actors use to build and perform a
+role. This produces characters with depth, believability, and dramatic
+potential. Our philosophy is simple: the fundamental unit of creativity
+is the **Character**.
+
+## The Method I System: A Two-Part Harmony
+
+The Method I ecosystem comprises two interconnected components:
+
+* **The Method I Acting Training** – a comprehensive system for human
+  actors and AI creators to build and inhabit characters.
+* **The Method I Narrative Engine** – the technological heart of the
+  system, a glass-box architecture that brings characters to life.
+
+### The Two-Phase Character Study Method
+
+The acting training builds a character from the ground up through two
+phases.
+
+**Phase I: Character Formation (The Architect's Work)**
+
+This is deep, foundational work: constructing a complete human being
+through textual analysis, psychological exploration, and physical
+invention.
+
+* **Part A: The Blueprint (Textual Analysis)** – a forensic investigation
+  of the character's script to uncover facts, contradictions, and
+  linguistic fingerprints.
+* **Part B: The Inner World (Psychological & Imaginative Work)** – the
+  character's soul, mind, and history, including motivations, fears, and a
+  sensory-rich memory journal.
+* **Part C: The Physical Form (External Embodiment)** – giving the
+  character a distinct, motivated body using techniques like Animal Work
+  and the Michael Chekhov Technique.
+
+**Phase II: Scene Grounding (The Actor's Work)**
+
+The practical work used during rehearsal and performance to connect with
+the character in the moment.
+
+* **Part A: The Pre-Scene Checklist (Situational Grounding)** – a quick
+  mental checklist for focus, presence, and momentum before a scene
+  begins.
+* **Part B: The In-Scene Activation (Performance Technique)** – actions to
+  stay responsive and alive, playing the action and fully engaging the
+  senses.
+
+## The Method I Narrative Engine
+
+The Narrative Engine manifests the acting training in technology. It is
+a transparent, auditable system that lets creators understand why a
+character behaves a certain way.
+
+### Core Components
+
+* **AI Character Dossier** – the digital blueprint of a character,
+  containing core data, psychological and linguistic profiles, and
+  multimedia assets.
+* **Five-Part Generative Chain** – a process that deconstructs performing
+  a turn into auditable steps: inner monologue, action and dialogue
+  generation, scene analysis, scene closure judgment, and curation.
+* **Dramaturgical RAG System** – a context-aware, emotionally informed
+  retrieval system that lets characters recall relevant aspects of their
+  personality and history.
+
+## The Future Is Character-Driven
+
+Method I shifts how we think about AI and creativity. By treating the
+character as the core creative asset, it fosters a future where creators
+retain control, characters persist across stories, and creativity becomes
+collaborative.
+
+## Repository Overview
+
+This repository hosts design documents for the Method I Narrative Engine.
+See [ROADMAP.md](ROADMAP.md) for the implementation plan derived from
+section 8 of the main design document.
 
 ## Project Status
 
