@@ -207,3 +207,73 @@ class DossierCompiler:
                         "error": f"Validation failed: {err.message}",
                     }
 
+
+@dataclass
+class CastingCallWorkflow:
+    """End-to-end casting call workflow.
+
+    This orchestrates running the character extraction pipeline, retrieving
+    selected candidates from the casting call log and compiling dossiers for the
+    requested candidates. Any errors produced during extraction or compilation
+    are collected and returned alongside successful dossiers.
+    """
+
+    extractor: CharacterExtractionPipeline
+    compiler: DossierCompiler
+    store: CastingCallLogStore
+
+    def run(
+        self,
+        book_id: str,
+        selected_ids: List[int],
+        source: str = "gutenberg",
+    ) -> tuple[list[dict], list[dict]]:
+        """Execute the casting call workflow.
+
+        Parameters
+        ----------
+        book_id:
+            Identifier of the book to process.
+        selected_ids:
+            Indices into the casting call log specifying which candidates to
+            compile.
+        source:
+            Source from which the book text will be fetched. Defaults to
+            ``"gutenberg"``.
+
+        Returns
+        -------
+        tuple[list[dict], list[dict]]
+            Two-element tuple of compiled dossiers and error records. Each
+            error record contains the failing candidate ``id`` and a message
+            under ``"error"``.
+        """
+
+        compiled: list[dict] = []
+        errors: list[dict] = []
+
+        try:
+            self.extractor.run(book_id=book_id, source=source)
+        except Exception as exc:
+            logger.exception("Character extraction failed for %s", book_id)
+            errors.append({"stage": "extraction", "error": str(exc)})
+            return compiled, errors
+
+        logs = self.store.all()
+        for idx in selected_ids:
+            if 0 <= idx < len(logs):
+                candidate = logs[idx].candidate
+                result = self.compiler.compile(candidate)
+                if "error" in result:
+                    errors.append({
+                        "id": idx,
+                        "name": candidate.name,
+                        "error": result["error"],
+                    })
+                else:
+                    compiled.append(result)
+            else:
+                errors.append({"id": idx, "error": "invalid candidate id"})
+
+        return compiled, errors
+
